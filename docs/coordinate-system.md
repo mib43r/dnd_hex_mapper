@@ -2,43 +2,19 @@
 
 This document defines the stable identities used for cells, edges, and points in the D&D Hex Mapper.
 
-## Goals
-
-The topology must:
-
-- remain stable when the SVG size or zoom changes
-- avoid ownership rules that assign a shared feature to one arbitrary cell
-- support boundary edges and points
-- serialize as compact numeric arrays
-- reconstruct incident cells without parsing display geometry
-
-The persistence coordinate system is named `scaled-axial-v1`.
+The persistence coordinate system is `scaled-axial-v1`.
 
 ## Axial cells
 
-Each cell uses an axial coordinate:
+Each cell uses an axial coordinate `(q, r)`. The implied cube coordinate is `s = -q - r`.
 
-```text
-(q, r)
-```
-
-The third cube coordinate is implied:
-
-```text
-s = -q - r
-```
-
-A cell is exported as the numeric pair:
+Cells are exported as numeric pairs:
 
 ```json
 [1, 0]
 ```
 
-The application may use string keys such as `"1,0"` internally, but exported JSON uses numeric arrays.
-
-## Neighbor directions
-
-The six axial neighbor directions are:
+The six neighbor directions are:
 
 ```text
 ( 1,  0)
@@ -49,30 +25,15 @@ The six axial neighbor directions are:
 ( 1, -1)
 ```
 
-Two cells are adjacent when their coordinate difference is one of these directions.
-
 ## Edge coordinates
 
-An edge is identified by the sum of its two incident cell coordinates.
-
-For cells:
-
-```text
-A = (q1, r1)
-B = (q2, r2)
-```
-
-The edge coordinate is:
+An edge identity is the sum of two adjacent cell coordinates:
 
 ```text
 (Q, R) = (q1 + q2, r1 + r2)
 ```
 
-This is a doubled axial midpoint. The geometric midpoint is:
-
-```text
-(Q / 2, R / 2)
-```
+This is a doubled axial midpoint. Its geometric midpoint is `(Q / 2, R / 2)`.
 
 Example:
 
@@ -87,35 +48,29 @@ Exported form:
 [1, 0]
 ```
 
-### Why doubled coordinates are used
+The identity is symmetric: reversing the two cells produces the same edge coordinate. No cell owns a shared edge.
 
-A midpoint between adjacent integer axial cells usually contains halves. Multiplying the midpoint by two keeps the identity integral and avoids floating-point comparisons.
+### Edge validity states
 
-The identity is symmetric: exchanging the two cells produces the same edge coordinate. No cell owns the edge.
+| Existing incident cells | Meaning | Required behavior |
+| --- | --- | --- |
+| 2 | Interior shared edge | Render, edit, and persist. |
+| 1 | Map-boundary edge | Valid topology. Intended to render, edit, and persist. |
+| 0 | Fully external edge | Ignore during interaction/rendering and remove during normalization or export. |
 
-### Reconstructing incident cells
+The current persistence and pruning model retains an edge while at least one reconstructed incident cell exists. Direct rendering and editing of one-cell boundary edges are intended behavior but are not yet fully implemented by the current renderer.
 
-Valid edge coordinates map to two possible incident cells. The parity pattern of `(Q, R)` identifies their orientation.
-
-An edge is retained while at least one reconstructed incident cell exists in the current map. It is removed only when neither incident cell exists.
-
-This rule supports editable boundary edges without permitting fully external features.
+A coordinate with no incident cell in the generated grid is outside the map. It must not appear in a normalized export.
 
 ## Point coordinates
 
-A hex vertex is shared by up to three cells. It is identified by the sum of those three incident cell coordinates.
-
-For cells `A`, `B`, and `C`:
+A hex vertex is identified by the sum of its three possible incident cell coordinates:
 
 ```text
 (U, V) = A + B + C
 ```
 
-This is a tripled axial vertex coordinate. The rendered position is:
-
-```text
-(U / 3, V / 3)
-```
+This is a tripled axial vertex coordinate. Its rendered position is `(U / 3, V / 3)`.
 
 Example:
 
@@ -130,75 +85,44 @@ Exported form:
 [2, -1]
 ```
 
-### Why tripled coordinates are used
-
-The average of three incident cells may contain thirds. Multiplying by three produces an integral, stable identity.
-
-This replaces the earlier approach of rounding SVG pixel positions. Pixel-based identities can change when geometry constants or rendering precision change; scaled axial identities do not.
-
-### Reconstructing incident cells
-
-A valid point coordinate maps to one of two vertex orientations and reconstructs three possible incident cells.
-
-A point is retained while at least one reconstructed incident cell exists. It is removed only when all incident cells are outside the current map.
-
-Therefore:
+A point is retained while at least one reconstructed incident cell exists:
 
 - interior points normally have three existing incident cells
 - boundary points may have one or two existing incident cells
-- fully external points are never rendered or exported
+- fully external points are removed
 
-## Rendering
+Boundary point rendering and editing are implemented by visiting the corners of existing cells.
 
-Cells are rendered by converting `(q, r)` to pixels.
+## Rendering identities
 
-Edges are rendered from their midpoint coordinate `(Q / 2, R / 2)` and their reconstructed orientation.
+Cells are converted from `(q, r)` to pixels. Edge and point identities remain scaled-axial coordinates in state and JSON.
 
-Points are rendered by converting `(U / 3, V / 3)` to pixels.
+SVG coordinates are presentation data only. Rounded pixel locations must never become authoritative persistence keys.
 
-Rendering coordinates are derived from topology. SVG pixel positions are never the authoritative identity of an edge or point.
+For an interior edge, the current renderer derives the line from the shared side of its two existing cells. The planned boundary-edge implementation should derive the side and endpoints from the one existing incident cell and the reconstructed missing neighbor, without creating an outside grid cell.
 
-## Resize and pruning rules
+## Resize, import, and export cleanup
 
-Whenever the map is rebuilt, imported, or exported:
+Normalization follows these rules:
 
-1. Generate the set of existing cell coordinates for the current `cellCount`.
+1. Generate the existing cell set for `cellCount`.
 2. Remove stored cells outside that set.
-3. Reconstruct each edge's incident cells.
-4. Remove an edge only when none of its incident cells exist.
-5. Reconstruct each point's incident cells.
-6. Remove a point only when none of its incident cells exist.
-7. Never render fully external features.
+3. Reconstruct each edge's possible incident cells.
+4. Retain an edge when at least one incident cell exists.
+5. Remove an edge when no incident cell exists.
+6. Reconstruct each point's possible incident cells.
+7. Retain a point when at least one incident cell exists.
+8. Remove a point when no incident cell exists.
 
-Shrinking a map may convert an interior feature into a boundary feature. That feature remains valid. Expanding the map can make it interior again without changing its identity.
+Shrinking a map may turn an interior feature into a boundary feature. Its identity remains stable. Expanding the map may make it interior again.
 
-## Canonical examples
+## Test invariants
 
-```text
-Cell
-  coordinate: (1, 0)
-  export:     [1, 0]
+Focused tests should verify:
 
-Edge between (0, 0) and (1, 0)
-  coordinate: (1, 0)
-  render at:  (0.5, 0)
-  export:     [1, 0]
-
-Point shared by (0, 0), (1, 0), and (1, -1)
-  coordinate: (2, -1)
-  render at:  (2/3, -1/3)
-  export:     [2, -1]
-```
-
-## Invariants for tests
-
-Automated topology tests should verify that:
-
-- exchanging incident cells does not change an edge identity
-- all six edges around a cell have unique valid identities
-- all six vertices around a cell have unique valid identities
-- reconstructed edge cells reproduce the original edge coordinate
-- reconstructed point cells reproduce the original point coordinate
-- identities remain unchanged across render and import/export round trips
-- boundary features survive with one incident cell
-- fully external features are pruned
+- reversing incident cells does not change an edge identity
+- reconstructed edge cells reproduce the original coordinate
+- reconstructed point cells reproduce the original coordinate
+- identities survive import/export round trips
+- boundary features with one incident cell survive normalization
+- fully external features are absent from normalized exports
