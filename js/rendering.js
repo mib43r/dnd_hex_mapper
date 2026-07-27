@@ -55,19 +55,10 @@ function renderMap(options = {}) {
     if (activeInfluences.length) {
       const spacing = 10;
       const firstX = pos.x + 17 - (activeInfluences.length - 1) * spacing;
-
       activeInfluences.forEach((influenceType, index) => {
         const x = firstX + index * spacing;
         const y = pos.y - 18;
-
-        influenceMarkerLayer.appendChild(svgElement('circle', {
-          cx: x,
-          cy: y,
-          r: 5,
-          fill: CELL_TYPES[influenceType].fill,
-          class: 'influence-marker'
-        }));
-
+        influenceMarkerLayer.appendChild(svgElement('circle', { cx: x, cy: y, r: 5, fill: CELL_TYPES[influenceType].fill, class: 'influence-marker' }));
         const glyph = svgElement('text', { x, y: y + 0.5, class: 'influence-glyph' });
         glyph.textContent = CELL_TYPES[influenceType].icon;
         influenceMarkerLayer.appendChild(glyph);
@@ -76,15 +67,14 @@ function renderMap(options = {}) {
   });
 
   const renderedEdges = new Set();
-
   cells.forEach(cell => {
     const id = cellId(cell.q, cell.r);
-
     DIRECTIONS.forEach((direction, directionIndex) => {
-      const neighborId = getNeighborId(cell, directionIndex);
+      const neighbor = addAxial(cell, direction);
+      const neighborId = cellId(neighbor.q, neighbor.r);
       if (!idSet.has(neighborId)) return;
 
-      const key = canonicalEdgeKey(id, neighborId);
+      const key = edgeKeyFromCells(cell, neighbor);
       if (renderedEdges.has(key)) return;
       renderedEdges.add(key);
 
@@ -92,26 +82,12 @@ function renderMap(options = {}) {
       const a = current.vertices[directionIndex];
       const b = current.vertices[(directionIndex + 1) % 6];
       const feature = state.edges[key];
-
       if (feature) {
-        edgeLayer.appendChild(svgElement('line', {
-          x1: a.x,
-          y1: a.y,
-          x2: b.x,
-          y2: b.y,
-          class: `edge-feature ${EDGE_TYPES[feature.type].css}`
-        }));
+        edgeLayer.appendChild(svgElement('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: `edge-feature ${EDGE_TYPES[feature.type].css}` }));
       }
 
       if (interaction.mode === 'edge') {
-        const hit = svgElement('line', {
-          x1: a.x,
-          y1: a.y,
-          x2: b.x,
-          y2: b.y,
-          class: 'edge-hit',
-          'data-edge-key': key
-        });
+        const hit = svgElement('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y, class: 'edge-hit', 'data-edge-key': key });
         hit.addEventListener('click', event => onEdgeClick(event, key));
         hitLayer.appendChild(hit);
       }
@@ -119,76 +95,44 @@ function renderMap(options = {}) {
   });
 
   if (interaction.mode === 'point' || Object.keys(state.points).length) {
-    const vertexCells = {};
-
+    const renderedPoints = new Set();
     cells.forEach(cell => {
       const id = cellId(cell.q, cell.r);
+      positions[id].vertices.forEach((vertex, cornerIndex) => {
+        const coordinate = pointCoordinateForCorner(cell, cornerIndex);
+        const key = coordinateKey(coordinate);
+        if (renderedPoints.has(key)) return;
+        renderedPoints.add(key);
 
-      positions[id].vertices.forEach(vertex => {
-        const key = canonicalPointKey(vertex);
-        vertexCells[key] ||= { x: vertex.x, y: vertex.y, adjacentCellIds: [] };
-        if (!vertexCells[key].adjacentCellIds.includes(id)) {
-          vertexCells[key].adjacentCellIds.push(id);
+        const point = state.points[key];
+        if (point) {
+          const style = POINT_TYPES[point.type];
+          pointLayer.appendChild(svgElement('circle', { cx: vertex.x, cy: vertex.y, r: point.type === 'poi' ? 7 : 6, fill: style.fill, class: 'point-feature' }));
+          const glyph = svgElement('text', { x: vertex.x, y: vertex.y + 0.5, class: 'overlay-label', style: 'font-size:8px' });
+          glyph.textContent = style.glyph;
+          pointLayer.appendChild(glyph);
+        }
+
+        if (interaction.mode === 'point') {
+          const hit = svgElement('circle', { cx: vertex.x, cy: vertex.y, r: 11, class: 'point-hit' });
+          hit.addEventListener('click', event => onPointClick(event, key));
+          hitLayer.appendChild(hit);
         }
       });
     });
-
-    Object.entries(vertexCells).forEach(([key, vertex]) => {
-      const point = state.points[key];
-
-      if (point) {
-        const style = POINT_TYPES[point.type];
-        pointLayer.appendChild(svgElement('circle', {
-          cx: vertex.x,
-          cy: vertex.y,
-          r: point.type === 'poi' ? 7 : 6,
-          fill: style.fill,
-          class: 'point-feature'
-        }));
-
-        const glyph = svgElement('text', {
-          x: vertex.x,
-          y: vertex.y + 0.5,
-          class: 'overlay-label',
-          style: 'font-size:8px'
-        });
-        glyph.textContent = style.glyph;
-        pointLayer.appendChild(glyph);
-      }
-
-      if (interaction.mode === 'point') {
-        const hit = svgElement('circle', {
-          cx: vertex.x,
-          cy: vertex.y,
-          r: 11,
-          class: 'point-hit'
-        });
-        hit.addEventListener('click', event => onPointClick(event, key, vertex));
-        hitLayer.appendChild(hit);
-      }
-    });
   }
 
-  if (options.fit || !interaction.baseViewBox) {
-    fitViewBox(cells, positions);
-  } else {
-    applyViewBox();
-  }
-
+  if (options.fit || !interaction.baseViewBox) fitViewBox(cells, positions);
+  else applyViewBox();
   updateStatus();
 }
 
 function fitViewBox(cells, positions) {
   const xs = [];
   const ys = [];
-
   cells.forEach(cell => {
-    positions[cellId(cell.q, cell.r)].vertices.forEach(point => {
-      xs.push(point.x);
-      ys.push(point.y);
-    });
+    positions[cellId(cell.q, cell.r)].vertices.forEach(point => { xs.push(point.x); ys.push(point.y); });
   });
-
   const padding = HEX_SIZE * 1.6;
   interaction.baseViewBox = {
     x: Math.min(...xs) - padding,
@@ -196,7 +140,6 @@ function fitViewBox(cells, positions) {
     width: Math.max(...xs) - Math.min(...xs) + padding * 2,
     height: Math.max(...ys) - Math.min(...ys) + padding * 2
   };
-
   interaction.zoom = 1;
   interaction.panX = 0;
   interaction.panY = 0;
@@ -205,7 +148,6 @@ function fitViewBox(cells, positions) {
 
 function applyViewBox() {
   if (!interaction.baseViewBox) return;
-
   const base = interaction.baseViewBox;
   const width = base.width / interaction.zoom;
   const height = base.height / interaction.zoom;
@@ -218,14 +160,9 @@ function refreshCellClasses() {
   $('.hex-cell').each(function () {
     const id = this.dataset.cellId;
     const gesture = interaction.cellGesture;
-
     this.classList.toggle('selected', interaction.selectedCellIds.has(id) || state.selectedCellId === id);
-    this.classList.toggle('drag-source', Boolean(
-      gesture && !gesture.ctrl && gesture.moved && gesture.sourceId === id
-    ));
-    this.classList.toggle('drag-target', Boolean(
-      gesture && !gesture.ctrl && gesture.moved && interaction.dragTargetCellId === id && gesture.sourceId !== id
-    ));
+    this.classList.toggle('drag-source', Boolean(gesture && !gesture.ctrl && gesture.moved && gesture.sourceId === id));
+    this.classList.toggle('drag-target', Boolean(gesture && !gesture.ctrl && gesture.moved && interaction.dragTargetCellId === id && gesture.sourceId !== id));
   });
 }
 
@@ -239,6 +176,5 @@ function renderLegend() {
       </div>
     `)
     .join('');
-
   $('#terrainLegend').html(entries);
 }
