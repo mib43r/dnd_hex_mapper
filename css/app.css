@@ -98,6 +98,11 @@ body {
   stroke-width: 4.5;
 }
 
+.terrain-motifs {
+  pointer-events: none;
+  color: #2f302b;
+}
+
 .hex-label {
   pointer-events: none;
   font: 600 8px system-ui, sans-serif;
