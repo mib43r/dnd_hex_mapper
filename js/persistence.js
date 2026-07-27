@@ -1,6 +1,11 @@
 'use strict';
 
 function exportMapState() {
+  if (!updateInfluenceSettingsFromControls()) {
+    setStatus('Influence budgets and terrain multipliers must be greater than zero before export.');
+    return;
+  }
+
   const exported = {
     schemaVersion: state.schemaVersion,
     cellCount: state.cellCount,
@@ -9,8 +14,8 @@ function exportMapState() {
     points: state.points,
     selectedCellId: state.selectedCellId,
     influences: {
-      budget: Number($('#travelBudget').val()) || state.influences.budget,
       enabled: state.influences.enabled,
+      settings: state.influences.settings,
       calculated: state.influences.calculated
     }
   };
@@ -35,6 +40,7 @@ function importMapState() {
 
 async function copyMapJson() {
   if (!$('#jsonState').val()) exportMapState();
+  if (!$('#jsonState').val()) return;
 
   try {
     await navigator.clipboard.writeText($('#jsonState').val());
