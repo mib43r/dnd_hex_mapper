@@ -1,5 +1,66 @@
 'use strict';
 
+function terrainSeed(value) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededRandom(seed) {
+  let value = seed >>> 0;
+  return () => {
+    value += 0x6D2B79F5;
+    let result = value;
+    result = Math.imul(result ^ result >>> 15, result | 1);
+    result ^= result + Math.imul(result ^ result >>> 7, result | 61);
+    return ((result ^ result >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function renderTerrainMotifs(layer, definitions, id, type, pos, vertices) {
+  const config = TERRAIN_MOTIFS[type];
+  if (!config) return;
+
+  const clipId = `terrain-clip-${id.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+  const clipPath = svgElement('clipPath', { id: clipId });
+  clipPath.appendChild(svgElement('polygon', { points: pointsAttribute(vertices) }));
+  definitions.appendChild(clipPath);
+
+  const group = svgElement('g', {
+    class: `terrain-motifs terrain-motifs-${type}`,
+    'clip-path': `url(#${clipId})`
+  });
+  const random = seededRandom(terrainSeed(`${id}:${type}`));
+  const anchors = [
+    [-0.42, -0.27], [0, -0.34], [0.42, -0.24],
+    [-0.28, 0.16], [0.22, 0.14], [-0.02, 0.34], [0.46, 0.28]
+  ];
+
+  for (let index = 0; index < config.count; index += 1) {
+    const anchor = anchors[index % anchors.length];
+    const symbol = config.symbols[Math.floor(random() * config.symbols.length)];
+    const scale = config.scale[0] + random() * (config.scale[1] - config.scale[0]);
+    const size = 64 * scale;
+    const x = pos.x + anchor[0] * HEX_SIZE * 1.45 + (random() - 0.5) * 5;
+    const y = pos.y + anchor[1] * HEX_SIZE * 1.45 + (random() - 0.5) * 4;
+    const rotation = (random() - 0.5) * 10;
+    const motif = svgElement('use', {
+      href: `${config.sheet}#${symbol}`,
+      x: -size / 2,
+      y: -size / 2,
+      width: size,
+      height: size,
+      transform: `translate(${x} ${y}) rotate(${rotation})`
+    });
+    group.appendChild(motif);
+  }
+
+  layer.appendChild(group);
+}
+
 function renderMap(options = {}) {
   const svg = $('#hexMap').empty()[0];
   const cells = generateSpiral(state.cellCount);
@@ -7,13 +68,15 @@ function renderMap(options = {}) {
   const positions = {};
   interaction.validCellIds = idSet;
 
+  const definitions = svgElement('defs');
   const cellLayer = svgElement('g');
+  const motifLayer = svgElement('g');
   const overlayLayer = svgElement('g');
   const influenceMarkerLayer = svgElement('g');
   const edgeLayer = svgElement('g');
   const pointLayer = svgElement('g');
   const hitLayer = svgElement('g');
-  svg.append(cellLayer, overlayLayer, edgeLayer, pointLayer, influenceMarkerLayer, hitLayer);
+  svg.append(definitions, cellLayer, motifLayer, overlayLayer, edgeLayer, pointLayer, influenceMarkerLayer, hitLayer);
 
   cells.forEach((cell, spiralIndex) => {
     const id = cellId(cell.q, cell.r);
@@ -33,10 +96,13 @@ function renderMap(options = {}) {
     polygon.addEventListener('pointerdown', event => onCellPointerDown(event, id));
     polygon.addEventListener('click', event => onCellClick(event, id));
     cellLayer.appendChild(polygon);
+    renderTerrainMotifs(motifLayer, definitions, id, type, pos, vertices);
 
-    const label = svgElement('text', { x: pos.x, y: pos.y, class: 'hex-label' });
-    label.textContent = meta.icon || (spiralIndex === 0 ? '0' : '');
-    cellLayer.appendChild(label);
+    if (type === 'none' && spiralIndex === 0) {
+      const label = svgElement('text', { x: pos.x, y: pos.y, class: 'hex-label' });
+      label.textContent = '0';
+      cellLayer.appendChild(label);
+    }
 
     const activeInfluences = INFLUENCE_TYPES.filter(influenceType =>
       state.influences.enabled[influenceType] &&
