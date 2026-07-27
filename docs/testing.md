@@ -1,8 +1,48 @@
 # Testing
 
-The project uses Playwright for browser-level automated tests while keeping the production application build-free.
+The project declares Playwright as its browser-level regression tool while keeping the production application build-free.
 
-## Commands
+## Current status
+
+The repository currently contains:
+
+- a pinned `@playwright/test` development dependency
+- `npm test`
+- `npm run test:headed`
+
+The Playwright browser configuration and maintained test files are still minimal or incomplete. There is no promise of broad automated coverage yet, and the npm commands should not be treated as a mature regression suite until focused tests are added.
+
+## Intended role
+
+Playwright should open the real static application in a browser and verify a small number of representative normal user workflows.
+
+It is intended to catch obvious integration regressions between:
+
+- application state
+- editing interactions
+- topology identities
+- SVG rendering
+- influence calculation
+- JSON persistence
+
+The test setup should remain smaller and simpler than the application itself.
+
+## Explicit non-goals
+
+The Playwright layer should not:
+
+- introduce a production build system
+- create a large custom test framework
+- require databases, services, generated fixtures, or elaborate helpers
+- duplicate every internal JavaScript function with browser assertions
+- depend heavily on incidental SVG child order or styling details
+- exhaustively test malformed input combinations
+- become a performance-benchmarking platform
+- add CI complexity before the local suite is stable
+
+Additional tests should be added only when they protect clear user behavior or a stable data contract.
+
+## Reserved commands
 
 Install the pinned development dependency:
 
@@ -10,7 +50,7 @@ Install the pinned development dependency:
 npm install
 ```
 
-Run the test suite:
+Run the configured Playwright command:
 
 ```bash
 npm test
@@ -22,190 +62,115 @@ Run with a visible browser:
 npm run test:headed
 ```
 
-The commands are defined in `package.json`.
+Until configuration and test files are committed, these commands may report that no tests are available.
 
-## Test philosophy
+## Minimal first suite
 
-Tests should protect externally visible behaviour and stable data contracts rather than incidental SVG markup or internal object ordering.
+The initial maintained suite should cover ordinary happy paths only.
 
-New coverage should be added in small, reviewable commits. A test commit should leave the existing suite runnable and should not introduce a production build system.
+### 1. Application startup
 
-## Priority coverage
+- open the static application
+- confirm the default map is visible
+- confirm there are no startup JavaScript errors
 
-### Grid and topology
+### 2. Cell editing
 
-Verify:
+- choose a terrain type
+- paint one generated cell
+- confirm the visible terrain changes
 
-- centre-first clockwise spiral generation
-- unique cell coordinates up to 1,500 cells
-- cell-count clamping
-- doubled edge-coordinate round trips
-- tripled point-coordinate round trips
-- six unique edges and six unique points around a cell
-- boundary features surviving with one incident cell
-- fully external edges and points being pruned
+### 3. Interior edge editing
 
-The topology contract is defined in [Coordinate System and Topology](coordinate-system.md).
+- select road
+- apply it to one rendered interior edge
+- confirm the road is visible
 
-### Persistence
+Boundary-edge editing should not be claimed as covered until that implementation exists.
 
-Verify:
+### 4. Point editing
 
-- schema version 4 export shape
-- `scaled-axial-v1` coordinate-system marker
-- feature grouping by type
-- numeric coordinate arrays
-- omission of plains
-- omission of empty groups where applicable
-- omission of selection and influence state
-- schema version 4 import/export round trips
-- supported schema version 3 migration
-- rejection or sanitization of malformed coordinates
-- removal of fully external features before export
-- preservation of boundary edges and points
+- add one point feature to a visible corner
+- confirm it renders
 
-The persistence contract is defined in [JSON Schema Version 4](json-schema-v4.md).
+### 5. Influence calculation
 
-### Cell interactions
+- create a normal influence source
+- calculate influence
+- confirm calculation completes without a JavaScript error
+- confirm at least one expected overlay is visible
+- confirm a representative road, river, bridge, or pass is resolved through the scaled-axial edge identity
 
-Verify:
+This is intended to protect the integration path, not exhaustively prove the weighted traversal algorithm.
 
-- individual painting and clearing
-- Ctrl-click selection toggling
-- Ctrl-drag selection
-- batch filling and overwriting
-- cell-content swapping
-- edges and points remaining geographically anchored during swaps
+### 6. JSON round trip
 
-### Edge interactions
+- create one ordinary cell, edge, and point feature
+- export schema version 4 JSON
+- import that JSON
+- confirm the visible features are restored
 
-Verify:
+### 7. Normal map rebuild
 
-- individual edge editing and clearing
-- inside-edge batch operations
-- outside-edge batch operations
-- boundary edge editing
-- edge features remaining mutually exclusive
+- rebuild to a larger ordinary cell count
+- confirm the map renders and remains editable
 
-### Point interactions
+## Assertion guidance
 
-Verify:
+Prefer assertions about visible behavior and stable contracts:
 
-- creating towns, toll stations, and points of interest
-- replacing one point type with another
-- clearing points
-- stable identity across rerendering
-- boundary point editing
+- a cell has the expected type
+- a feature is visible at the expected map identity
+- export uses schema version `4`
+- export omits plains and influence data
+- import restores ordinary map features
+- influence calculation completes and produces a representative overlay
 
-### Movement and influence
+Avoid assertions about:
 
-Verify:
+- exact SVG element order
+- transient status wording unless the wording itself is important
+- private object enumeration order
+- exact formatting or whitespace in JSON
+- implementation details that can change without affecting behavior
 
-- normal terrain movement cost
-- forest movement cost
-- road movement cost
-- rivers blocking travel
-- water requiring a bridge crossing
-- mountains requiring a pass crossing
-- all forest, grain, and city sources participating
-- overlapping influence layers
-- independent visibility toggles
-- influence recalculation at startup
-- influence recalculation after import and resize
-- relevant map edits invalidating previous influence results
-- influence state not appearing in exported JSON
+## Topology and persistence scope
 
-### Viewport and rendering
+The minimal browser suite should confirm representative integration cases rather than every mathematical invariant.
 
-Verify:
+Useful focused cases include:
 
-- initial rendering
-- fit-map behaviour
-- button and wheel zoom
-- Shift-drag and middle-button panning
-- feature rendering at scaled axial coordinates
-- a 1,500-cell map rendering within the configured timeout
+- reversing two adjacent cell IDs resolves the same edge identity
+- an ordinary interior edge survives export/import
+- a point survives export/import
+- fully external imported features do not appear in normalized output
 
-## Recommended file layout
+More exhaustive coordinate-property tests should only be added when they remain straightforward and clearly valuable.
 
-As coverage grows, keep related cases in focused files:
+## Manual verification
 
-```text
-tests/
-  grid.spec.js
-  topology.spec.js
-  movement.spec.js
-  cell-interactions.spec.js
-  edge-interactions.spec.js
-  point-interactions.spec.js
-  influence.spec.js
-  persistence.spec.js
-  viewport.spec.js
-```
+Until the minimal suite exists, use a short manual check after relevant changes:
 
-This is a target organization, not a guarantee that every file already exists.
+1. Load the application and confirm the default map renders.
+2. Paint one cell.
+3. Add one interior edge and one point.
+4. Create an influence source and calculate influence.
+5. Confirm no JavaScript error occurs during edge-aware traversal.
+6. Export and re-import the map.
+7. Rebuild to a larger normal cell count.
 
-## Stable assertions
+## Continuous integration intention
 
-Prefer assertions against:
+A pull-request workflow may be added after the local suite is stable and useful. It should run only the same small suite used locally and should remain independent of GitHub Pages deployment.
 
-- application state exposed intentionally for tests
-- exported normalized JSON
-- feature counts and identities
-- user-visible status text
-- semantic classes and `data-*` identifiers
+Do not add elaborate matrices, custom services, generated artifacts, or workaround infrastructure unless the application later requires them.
 
-Avoid relying on:
+## Adding a test
 
-- exact SVG element order unless layer order is the behaviour under test
-- formatted JSON whitespace
-- object property order
-- exact pixel values when scaled axial identity is sufficient
-- temporary interaction implementation details
+A new test should answer three questions:
 
-## Normalizing persistence data
+1. Which real user behavior or stable data contract does it protect?
+2. Can the behavior be tested through the current static application without new infrastructure?
+3. Is the test simpler than the regression it prevents?
 
-Coordinate-array order and object group order are not semantically significant. Persistence tests should normalize data before comparison by:
-
-1. Removing omitted empty groups consistently.
-2. Sorting feature-type names.
-3. Sorting coordinate arrays lexicographically within each group.
-4. Comparing numeric coordinates and feature identities.
-
-Do not compare raw exported JSON strings unless formatting itself is being tested.
-
-## Manual verification checklist
-
-Before merging a change that affects map data or topology, manually confirm:
-
-- a small map loads and is editable
-- a 1,500-cell map can be created
-- cells can be painted, selected, batch-filled, and swapped
-- interior and boundary edges can be edited
-- interior and boundary points can be edited
-- shrinking the map removes only fully external features
-- expanding the map preserves surviving feature identities
-- export contains schema version 4 grouped arrays
-- plains and influence state are absent from export
-- exported JSON imports successfully
-- influence overlays are recalculated after import
-- zoom, pan, and fit-map still work
-
-## Continuous integration
-
-Browser tests should run for pull requests and may also run for pushes to `main`. The test workflow should remain independent from the GitHub Pages deployment workflow.
-
-A workflow result is authoritative only when it runs against the commit being reviewed. Local test results should be reported separately from connector-based source verification.
-
-## Reporting test status
-
-For each implementation milestone, report:
-
-- tests added or changed
-- tests actually run
-- pass or failure result
-- browser or environment used
-- checks not run
-- remaining coverage gaps
-
-Never describe planned coverage as already implemented.
+If not, prefer a manual verification note or a smaller assertion.
