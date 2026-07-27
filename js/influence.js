@@ -1,6 +1,6 @@
 'use strict';
 
-function movementCost(fromId, toId) {
+function movementCost(fromId, toId, influenceType) {
   const edge = state.edges[canonicalEdgeKey(fromId, toId)]?.type || null;
   const fromType = getExistingCellType(fromId);
   const toType = getExistingCellType(toId);
@@ -10,10 +10,11 @@ function movementCost(fromId, toId) {
   if (toType === 'mountains' || fromType === 'mountains') return edge === 'pass' ? 1 : Infinity;
   if (edge === 'road') return 0.5;
   if (edge === 'bridge' || edge === 'pass') return 1;
-  return CELL_TYPES[toType].cost;
+
+  return state.influences.settings[influenceType].terrainMultipliers[toType] ?? 1;
 }
 
-function calculateMultiSourceReach(originIds, budget, validIds) {
+function calculateMultiSourceReach(originIds, budget, validIds, influenceType) {
   const costs = {};
   const heap = new MinHeap();
 
@@ -31,7 +32,7 @@ function calculateMultiSourceReach(originIds, budget, validIds) {
       const neighborId = cellId(cell.q + direction.q, cell.r + direction.r);
       if (!validIds.has(neighborId)) return;
 
-      const step = movementCost(current.id, neighborId);
+      const step = movementCost(current.id, neighborId, influenceType);
       if (!Number.isFinite(step)) return;
 
       const candidate = current.cost + step;
@@ -45,21 +46,44 @@ function calculateMultiSourceReach(originIds, budget, validIds) {
   return costs;
 }
 
+function updateInfluenceSettingsFromControls() {
+  let valid = true;
+
+  INFLUENCE_TYPES.forEach(type => {
+    const settings = state.influences.settings[type];
+    const budget = Number($(`.influence-budget[data-influence-type="${type}"]`).val());
+    if (!Number.isFinite(budget) || budget <= 0) valid = false;
+    else settings.budget = budget;
+
+    INFLUENCE_TERRAIN_TYPES.forEach(terrainType => {
+      const input = $(`.terrain-multiplier[data-influence-type="${type}"][data-terrain-type="${terrainType}"]`);
+      const multiplier = Number(input.val());
+      if (!Number.isFinite(multiplier) || multiplier <= 0) valid = false;
+      else settings.terrainMultipliers[terrainType] = multiplier;
+    });
+  });
+
+  return valid;
+}
+
 function calculateAllInfluences() {
-  const budget = Number($('#travelBudget').val());
-  if (!Number.isFinite(budget) || budget <= 0) {
-    setStatus('Travel budget must be greater than zero.');
+  if (!updateInfluenceSettingsFromControls()) {
+    setStatus('Influence budgets and terrain multipliers must be greater than zero.');
     return false;
   }
 
   const validIds = new Set(generateSpiral(state.cellCount).map(cell => cellId(cell.q, cell.r)));
-  state.influences.budget = budget;
   const sourceCounts = {};
 
   INFLUENCE_TYPES.forEach(type => {
     const sources = Object.keys(state.cells).filter(id => validIds.has(id) && state.cells[id].type === type);
     sourceCounts[type] = sources.length;
-    state.influences.costs[type] = calculateMultiSourceReach(sources, budget, validIds);
+    state.influences.costs[type] = calculateMultiSourceReach(
+      sources,
+      state.influences.settings[type].budget,
+      validIds,
+      type
+    );
   });
 
   state.influences.calculated = true;
@@ -83,9 +107,15 @@ function updateInfluenceSummary(sourceCounts = null) {
 }
 
 function syncInfluenceControls() {
-  $('#travelBudget').val(state.influences.budget);
   INFLUENCE_TYPES.forEach(type => {
+    const settings = state.influences.settings[type];
     $(`.influence-toggle[data-influence-type="${type}"]`).prop('checked', state.influences.enabled[type]);
+    $(`.influence-budget[data-influence-type="${type}"]`).val(settings.budget);
+
+    INFLUENCE_TERRAIN_TYPES.forEach(terrainType => {
+      $(`.terrain-multiplier[data-influence-type="${type}"][data-terrain-type="${terrainType}"]`)
+        .val(settings.terrainMultipliers[terrainType]);
+    });
   });
   updateInfluenceSummary();
 }
