@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="house-1" viewBox="0 0 64 64"><path d="M9 31 32 12l23 19v24H9Z" fill="#2F302B"/><path d="M26 55V39h12v16M17 35h8v8h-8m22-8h8v8h-8" fill="#fff"/></symbol>
+  <symbol id="house-2" viewBox="0 0 64 64"><path d="M8 34 27 17l8 7 8-8 13 18v22H8Z" fill="#2F302B"/><path d="M25 56V40h11v16M14 38h7v7h-7m28-1h7v7h-7" fill="#fff"/></symbol>
+  <symbol id="tower-1" viewBox="0 0 64 64"><path d="M18 17h28v39H18Zm-4-8h36l-5 12H19Z" fill="#2F302B"/><path d="M27 56V40h10v16M24 26h6v8h-6m10-8h6v8h-6" fill="#fff"/></symbol>
+  <symbol id="wall-1" viewBox="0 0 64 64"><path d="M5 27h54v29H5Zm0-8h10v10H5m22-10h10v10H27m22-10h10v10H49Z" fill="#2F302B"/><path d="M25 56V40h14v16" fill="#fff"/></symbol>
+  <symbol id="gate-1" viewBox="0 0 64 64"><path d="M7 20h14v36H7Zm36 0h14v36H43ZM17 34h30v22H17Z" fill="#2F302B"/><path d="M26 56V42h12v14" fill="#fff"/></symbol>
+</svg>
