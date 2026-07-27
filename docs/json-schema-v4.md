@@ -1,8 +1,8 @@
 # JSON Schema Version 4
 
-This document defines the compact persistence format used by the D&D Hex Mapper.
+This document defines the compact map persistence format used by the D&D Hex Mapper.
 
-## Example
+## Canonical shape
 
 ```json
 {
@@ -22,126 +22,47 @@ This document defines the compact persistence format used by the D&D Hex Mapper.
 }
 ```
 
-## Top-level object
+## Top-level fields
 
 | Property | Type | Required | Description |
 | --- | --- | --- | --- |
-| `schemaVersion` | integer | yes | Must be `4` for this format. |
+| `schemaVersion` | integer | yes | Must be `4`. |
 | `coordinateSystem` | string | yes | Must be `scaled-axial-v1`. |
-| `cellCount` | integer | yes | Number of generated cells, from `1` to `1500`. |
-| `cells` | object | yes | Non-default cells grouped by cell type. |
-| `edges` | object | yes | Edge features grouped by edge type. |
-| `points` | object | yes | Point features grouped by point type. |
+| `cellCount` | integer | yes | Generated cell count from `1` to `1500`. |
+| `cells` | object | yes | Non-default cells grouped by type. |
+| `edges` | object | yes | Edge features grouped by type. |
+| `points` | object | yes | Point features grouped by type. |
 
-Unknown properties are not part of the schema and should not be relied upon.
+Unknown properties are outside the version 4 contract and must not be relied upon.
 
 ## Cells
 
-`cells` groups axial cell coordinates by feature type.
+Allowed groups are `forest`, `desert`, `water`, `mountains`, `grain`, and `city`. Each entry is `[q, r]`.
 
-Allowed group names are:
-
-- `forest`
-- `desert`
-- `water`
-- `mountains`
-- `grain`
-- `city`
-
-Each entry is a two-number integer array:
-
-```json
-[q, r]
-```
-
-Example:
-
-```json
-{
-  "cells": {
-    "forest": [[1, 0], [1, -1]],
-    "water": [[-1, 1]]
-  }
-}
-```
-
-### Plains
-
-Plains are the default cell type and are omitted. A generated coordinate that does not appear in any cell group is interpreted as plains.
-
-The legacy `none` value is not exported in schema version 4.
+Plains are the default and are omitted. A generated cell absent from every group is interpreted as plains.
 
 ## Edges
 
-`edges` groups doubled axial midpoint coordinates by feature type.
+Allowed groups are `road`, `river`, `pass`, and `bridge`. Each entry is a doubled axial edge coordinate `[Q, R]`.
 
-Allowed group names are:
-
-- `road`
-- `river`
-- `pass`
-- `bridge`
-
-Each entry is:
-
-```json
-[Q, R]
-```
-
-For two incident cells `(q1, r1)` and `(q2, r2)`:
+For adjacent cells `(q1, r1)` and `(q2, r2)`:
 
 ```text
 Q = q1 + q2
 R = r1 + r2
 ```
 
-Example:
-
-```json
-{
-  "edges": {
-    "road": [[1, 0]],
-    "river": [[0, 1]]
-  }
-}
-```
-
-See [Coordinate System and Topology](coordinate-system.md) for reconstruction and boundary rules.
+An edge with one or two incident grid cells is topology-valid. An edge with no incident grid cell is fully external and is removed during normalization/export. Current direct rendering and editing of one-cell boundary edges is not yet complete; see [Coordinate System and Topology](coordinate-system.md).
 
 ## Points
 
-`points` groups tripled axial vertex coordinates by feature type.
+Allowed groups are `town`, `toll`, and `poi`. Each entry is a tripled axial vertex coordinate `[U, V]`.
 
-Allowed group names are:
-
-- `town`
-- `toll`
-- `poi`
-
-Each entry is:
-
-```json
-[U, V]
-```
-
-For the three possible incident cells `A`, `B`, and `C`, the point coordinate is their axial sum.
-
-Example:
-
-```json
-{
-  "points": {
-    "town": [[2, -1]],
-    "poi": [[-1, 2]]
-  }
-}
-```
-
-Pixel positions and adjacent-cell lists are not persisted.
+A point with at least one incident grid cell is valid. Fully external points are removed.
 
 ## Empty groups
 
-Feature groups with no coordinates may be omitted. The containers themselves should be present as objects in newly exported files:
+Empty feature groups may be omitted. New exports keep the top-level containers:
 
 ```json
 {
@@ -151,71 +72,76 @@ Feature groups with no coordinates may be omitted. The containers themselves sho
 }
 ```
 
-Import code should treat a missing feature container as empty when safely possible.
+## Data intentionally not exported
 
-## Data intentionally not persisted
-
-Schema version 4 does not store:
+Schema version 4 does not export:
 
 - default plains cells
-- temporary multi-cell selection
-- active or selected cell
+- active or multi-cell selection
 - viewport zoom or pan
 - influence visibility settings
-- influence budgets
+- influence budgets or terrain multipliers
 - calculated influence reach or costs
-- SVG or pixel geometry
+- SVG geometry
 
-Influence is derived from the current map and application defaults. It is recalculated after import.
+Influence reach is derived and recalculated after import.
+
+## Compatible influence-setting input
+
+The importer may read compatible influence settings from older or extended input:
+
+- a legacy shared influence or overlay budget
+- per-influence budgets
+- per-influence terrain multipliers
+
+This is migration compatibility, not part of the schema version 4 export contract. These optional fields are not emitted by a new export and therefore are not guaranteed to survive an export/import round trip.
+
+Calculated influence costs, reach maps, and calculated-state flags are ignored and regenerated.
 
 ## Export cleanup
 
 Before export, the application normalizes the map:
 
 1. Clamp `cellCount` to the supported range.
-2. Generate the existing cell set.
-3. Remove stored cells outside the generated map.
-4. Remove edges with no incident existing cells.
-5. Remove points with no incident existing cells.
+2. Generate the current grid cell set.
+3. Remove stored cells outside that set.
+4. Remove edges with no incident grid cell.
+5. Remove points with no incident grid cell.
 6. Omit plains and empty feature groups.
-7. Serialize coordinates as numeric arrays.
+7. Serialize identities as numeric arrays.
 
-Boundary edges and points remain valid while at least one incident cell exists.
+Boundary features with at least one incident cell remain valid. Fully external features are absent from normalized output.
 
-## Import validation
+## Import behavior
 
-An importer should validate or sanitize:
+The importer sanitizes:
 
 - top-level object shape
-- supported schema version
-- coordinate system name
+- schema version and coordinate-system selection
 - cell-count range
-- known feature type names
-- coordinate entries containing exactly two finite integers
-- coordinates that correspond to valid cell, edge, or point topology
-- duplicate coordinates
-- features fully outside the generated map
+- known feature types
+- two-integer coordinate arrays
+- features fully outside the generated grid
+- invalid positive-number influence compatibility settings
 
-When duplicate coordinates occur within a group, they should collapse to one feature identity. A coordinate should not be assigned multiple mutually exclusive types; import order must not be used as a public conflict-resolution contract.
+Version 4 grouped data is selected only when `schemaVersion` is exactly `4` and `coordinateSystem` is exactly `scaled-axial-v1`. Other supported inputs use the legacy compatibility path.
 
-## Migration from earlier schemas
+## Migration from earlier formats
 
-The application accepts supported schema version 3 data and converts it into the schema version 4 state model.
+Compatibility migration can:
 
-Migration responsibilities include:
-
-- convert cell keys into grouped axial arrays
-- convert canonical cell-pair edge keys into doubled midpoint coordinates
-- convert point records into tripled vertex coordinates when their adjacent cells provide a valid identity
-- discard stored pixel coordinates as authoritative identity
-- discard selected-cell state
-- discard persisted influence settings and calculated influence state
+- convert cell-key objects into grouped axial arrays
+- convert adjacent-cell edge keys into doubled coordinates
+- convert point records into tripled coordinates when three adjacent cells are available
+- discard pixel coordinates as authoritative identity
+- discard selected-cell and calculated influence state
+- read compatible influence budgets and terrain multipliers
 - prune fully external features
 - recalculate influence after import
 
-Earlier schema compatibility is an import concern. New exports always use schema version 4.
+New exports always use schema version `4`.
 
-## Canonical minimal file
+## Minimal file
 
 ```json
 {
@@ -228,16 +154,12 @@ Earlier schema compatibility is an import concern. New exports always use schema
 }
 ```
 
-The single generated cell is plains because it is not listed in `cells`.
-
 ## Round-trip expectations
 
-For a valid schema version 4 file:
+For valid schema version 4 map data:
 
-- import followed by export should preserve map feature identities
-- object group order is not significant
-- coordinate-array order inside a group is not semantically significant
+- map feature identities survive import followed by export
+- object and coordinate-array order are not semantically significant
 - formatting and whitespace are not significant
-- derived influence results may differ if application movement defaults change
-
-Tests should compare normalized data rather than raw JSON text.
+- compatibility-only influence settings are not part of the round-trip guarantee
+- derived influence results may change when application defaults change
