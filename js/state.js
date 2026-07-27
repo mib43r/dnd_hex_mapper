@@ -17,17 +17,35 @@ const interaction = {
   suppressNextCellClick: false
 };
 
+const INFLUENCE_TERRAIN_TYPES = ['plains', 'forest', 'desert', 'grain', 'city'];
+
+function createDefaultInfluenceSettings() {
+  return Object.fromEntries(INFLUENCE_TYPES.map(type => [
+    type,
+    {
+      budget: 3,
+      terrainMultipliers: {
+        plains: 1,
+        forest: 2,
+        desert: 1,
+        grain: 1,
+        city: 1
+      }
+    }
+  ]));
+}
+
 function createInitialState(cellCount) {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     cellCount: clampCellCount(cellCount),
     cells: {},
     edges: {},
     points: {},
     selectedCellId: null,
     influences: {
-      budget: 3,
       enabled: { forest: true, grain: true, city: true },
+      settings: createDefaultInfluenceSettings(),
       calculated: false,
       costs: { forest: {}, grain: {}, city: {} }
     }
@@ -37,6 +55,11 @@ function createInitialState(cellCount) {
 function clampCellCount(value) {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) ? Math.max(1, Math.min(MAX_CELLS, parsed)) : 1;
+}
+
+function sanitizePositiveNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function invalidateInfluences() {
@@ -76,13 +99,22 @@ function sanitizeState(raw) {
 
   if (validIds.has(raw.selectedCellId)) clean.selectedCellId = raw.selectedCellId;
 
-  const budget = Number(raw.influences?.budget ?? raw.overlay?.budget);
-  clean.influences.budget = Number.isFinite(budget) && budget > 0 ? budget : 3;
+  const legacyBudget = sanitizePositiveNumber(raw.influences?.budget ?? raw.overlay?.budget, 3);
 
   INFLUENCE_TYPES.forEach(type => {
     if (typeof raw.influences?.enabled?.[type] === 'boolean') {
       clean.influences.enabled[type] = raw.influences.enabled[type];
     }
+
+    const rawSettings = raw.influences?.settings?.[type] || {};
+    clean.influences.settings[type].budget = sanitizePositiveNumber(rawSettings.budget, legacyBudget);
+
+    INFLUENCE_TERRAIN_TYPES.forEach(terrainType => {
+      clean.influences.settings[type].terrainMultipliers[terrainType] = sanitizePositiveNumber(
+        rawSettings.terrainMultipliers?.[terrainType],
+        clean.influences.settings[type].terrainMultipliers[terrainType]
+      );
+    });
   });
 
   clean.influences.calculated = Boolean(raw.influences?.calculated);
@@ -109,7 +141,7 @@ function rebuildPreservingData(newCount) {
 
   if (validIds.has(old.selectedCellId)) next.selectedCellId = old.selectedCellId;
 
-  next.influences.budget = old.influences.budget;
   next.influences.enabled = { ...old.influences.enabled };
+  next.influences.settings = JSON.parse(JSON.stringify(old.influences.settings));
   state = next;
 }
