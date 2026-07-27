@@ -105,25 +105,35 @@ function importLegacyFeatures(raw, clean, validIds) {
   });
 }
 
+function importCompatibleInfluenceSettings(raw, clean) {
+  const legacyBudget = sanitizePositiveNumber(raw.influences?.budget ?? raw.overlay?.budget, 3);
+
+  INFLUENCE_TYPES.forEach(type => {
+    const rawSettings = raw.influences?.settings?.[type] || {};
+    clean.influences.settings[type].budget = sanitizePositiveNumber(rawSettings.budget, legacyBudget);
+
+    INFLUENCE_TERRAIN_TYPES.forEach(terrainType => {
+      clean.influences.settings[type].terrainMultipliers[terrainType] = sanitizePositiveNumber(
+        rawSettings.terrainMultipliers?.[terrainType],
+        clean.influences.settings[type].terrainMultipliers[terrainType]
+      );
+    });
+  });
+}
+
+function isSchemaVersion4(raw) {
+  return Number(raw.schemaVersion) === 4 && raw.coordinateSystem === 'scaled-axial-v1';
+}
+
 function sanitizeState(raw) {
   if (!raw || typeof raw !== 'object') throw new Error('JSON must contain an object.');
   const clean = createInitialState(raw.cellCount || 1);
   const validIds = validCellIdSet(clean.cellCount);
 
-  if (Number(raw.schemaVersion) >= 4 && raw.coordinateSystem === 'scaled-axial-v1') importGroupedFeatures(raw, clean);
+  if (isSchemaVersion4(raw)) importGroupedFeatures(raw, clean);
   else importLegacyFeatures(raw, clean, validIds);
 
-  const legacyBudget = sanitizePositiveNumber(raw.influences?.budget ?? raw.overlay?.budget, 3);
-  INFLUENCE_TYPES.forEach(type => {
-    const rawSettings = raw.influences?.settings?.[type] || {};
-    clean.influences.settings[type].budget = sanitizePositiveNumber(rawSettings.budget, legacyBudget);
-    INFLUENCE_TERRAIN_TYPES.forEach(terrainType => {
-      clean.influences.settings[type].terrainMultipliers[terrainType] = sanitizePositiveNumber(
-        rawSettings.terrainMultipliers?.[terrainType], clean.influences.settings[type].terrainMultipliers[terrainType]
-      );
-    });
-  });
-
+  importCompatibleInfluenceSettings(raw, clean);
   return pruneInvalidMapFeatures(clean);
 }
 
