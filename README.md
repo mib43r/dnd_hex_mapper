@@ -46,41 +46,37 @@ Plains are the default and are omitted from exported map data.
 
 ### Edges
 
-Map borders can contain:
+Map borders can contain roads, rivers, mountain passes, and bridges.
 
-- roads
-- rivers
-- mountain passes
-- bridges
-
-Edges remain geographically anchored when cell contents are swapped. Boundary edges are supported and remain valid while at least one incident cell exists.
+Edges remain geographically anchored when cell contents are swapped. Interior shared edges are rendered and editable. The topology and persistence model also retain one-cell boundary edges, but direct boundary-edge rendering and editing are not yet fully implemented. Edges with no incident grid cell are invalid and are removed during normalization or export.
 
 ### Points
 
-Hex vertices can contain:
+Hex vertices can contain towns, toll stations, and points of interest.
 
-- towns
-- toll stations
-- points of interest
-
-Points are attached to stable map vertices rather than rounded screen coordinates. Boundary points remain valid while at least one incident cell exists.
+Points use stable scaled-axial vertex identities rather than rounded screen coordinates. Boundary points remain valid while at least one incident cell exists.
 
 ### Influence overlays
 
-Forest, grain, and city cells act as independent influence sources. The application calculates weighted reach using terrain and edge movement costs.
+Forest, grain, and city cells act as independent influence sources. Each influence type has its own reach budget and terrain-cost profile.
 
-Influence is derived state. It is recalculated at startup, after import, after map resizing, and when the user presses **Calculate all influences**. Influence settings and results are not persisted in map JSON.
+Road, river, bridge, and mountain-pass behavior remains fixed. Influence traversal resolves edge features through the same scaled-axial edge identity used by editing and persistence.
+
+Influence reach is derived state. It is recalculated at startup, after import, after map resizing, and when the user presses **Calculate all influences**. New schema version 4 exports omit influence settings and calculated results, although the importer may read compatible settings from earlier input.
 
 ## Quick start
 
 Open `index.html` in a browser, or serve the repository root with any static web server.
 
-For local browser tests:
+The repository declares Playwright and reserves these commands:
 
 ```bash
 npm install
 npm test
+npm run test:headed
 ```
+
+The browser configuration and maintained test files are still minimal or incomplete. See [Testing](docs/testing.md) before treating `npm test` as a complete regression suite.
 
 No production build step is required.
 
@@ -96,9 +92,9 @@ No production build step is required.
 
 ### Edge mode
 
-- Click an edge to apply or clear the selected edge feature.
+- Click a currently rendered edge to apply or clear the selected edge feature.
 - Use **Apply to inside edges** for borders between selected cells.
-- Use **Apply to outside edges** for borders between selected and unselected cells.
+- Use **Apply to outside edges** for borders between selected and unselected generated cells.
 
 ### Point mode
 
@@ -128,17 +124,18 @@ The export intentionally omits:
 - plains cells
 - temporary selections
 - the active cell
+- viewport state
 - influence settings and calculated influence data
 
-Before export, cells outside the map are removed. Edges and points are removed only when none of their incident cells still exist.
+Before export, cells outside the map are removed. Edges and points are removed when none of their incident cells exists. Compatible influence settings may be read during migration but are not part of the schema version 4 export contract.
 
-The importer accepts schema version `4` and migrates supported earlier map data. See the detailed [JSON schema reference](docs/json-schema-v4.md) and [coordinate system reference](docs/coordinate-system.md).
+See the [JSON schema reference](docs/json-schema-v4.md) and [coordinate system reference](docs/coordinate-system.md).
 
 ## Development
 
 The application remains build-free. Scripts are loaded in dependency order from `index.html`, with `js/app.js` loaded last.
 
-Automated browser tests use Playwright. Test commands and expected coverage are documented in [Testing](docs/testing.md).
+Playwright is intended as a deliberately small browser-level regression layer for representative normal workflows. It should not introduce a build system or become more complicated than the application it verifies. Current status and intended coverage are documented in [Testing](docs/testing.md).
 
 ## Repository structure
 
@@ -147,13 +144,13 @@ README.md                          Project overview and entry points
 docs/architecture.md              Module responsibilities and data flow
 docs/coordinate-system.md         Cell, edge, and point topology
 docs/json-schema-v4.md            Persistence schema and migration rules
-docs/testing.md                   Test setup, scope, and verification guidance
+docs/testing.md                   Minimal Playwright intent and verification guidance
 index.html                         Page structure and script references
 css/app.css                        Layout, map, overlay, and interaction styles
 js/constants.js                    Feature definitions and limits
 js/state.js                        State, validation, migration, and pruning
 js/grid.js                         Axial coordinates, topology, and geometry
-js/interactions.js                 Editing and selection behaviour
+js/interactions.js                 Editing and selection behavior
 js/influence.js                    Movement and influence calculations
 js/rendering.js                    SVG rendering and viewport handling
 js/persistence.js                  JSON export, import, and clipboard handling
@@ -163,30 +160,33 @@ js/app.js                          Event registration and startup
 ## Documentation
 
 - [Architecture](docs/architecture.md) — application modules and data flow
-- [Coordinate system](docs/coordinate-system.md) — scaled axial cell, edge, and point identities
+- [Coordinate system](docs/coordinate-system.md) — scaled-axial cell, edge, and point identities
 - [JSON schema version 4](docs/json-schema-v4.md) — compact map persistence format
-- [Testing](docs/testing.md) — Playwright setup, current coverage, and planned regression cases
+- [Testing](docs/testing.md) — minimal Playwright scope and current setup status
 
 ## Known limitations
 
 - There is no undo or redo history.
 - Ctrl-based multi-selection has no dedicated touch-screen alternative.
+- Direct rendering and editing of one-cell boundary edges are not yet complete.
 - Point mode supports only individual corner editing.
-- Forest, grain, and city influence layers share one travel-day budget.
 - Edge features are mutually exclusive rather than layered.
+- Terrain movement costs are editable per influence type, but edge movement rules remain fixed.
 - City and grain are primary cell types rather than independent attributes.
 - Bootstrap and jQuery are loaded from CDNs.
 - There is no PNG or standalone SVG export.
-- There are no custom labels, movement profiles, or custom icons.
+- There are no custom labels or custom icons.
 - Large-map performance has not yet been formally benchmarked across browsers.
+- The Playwright setup is intentionally minimal and does not yet provide broad automated coverage.
 
 ## Roadmap
 
 Current priorities are:
 
-1. Add maintained topology, persistence, interaction, influence, and viewport tests.
-2. Add undo and redo.
-3. Improve touch-friendly selection and editing.
-4. Support layered cell and edge attributes.
-5. Add image and standalone SVG export.
-6. Add custom labels, icons, and movement profiles.
+1. Add a small maintained Playwright suite for representative normal workflows.
+2. Complete boundary-edge rendering and editing without creating outside grid cells.
+3. Add undo and redo.
+4. Improve touch-friendly selection and editing.
+5. Support layered cell and edge attributes.
+6. Add image and standalone SVG export.
+7. Add custom labels and icons.
