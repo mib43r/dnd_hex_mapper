@@ -60,7 +60,7 @@ function canonicalPointKey(point) {
 }
 
 function getExistingCellType(id) {
-  return state.cells[id]?.type || 'none';
+  return state.cells[id]?.type || 'plains';
 }
 
 function getNeighborId(cell, index) {
