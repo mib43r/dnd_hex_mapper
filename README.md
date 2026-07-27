@@ -4,12 +4,12 @@ A browser-based generator and editor for regional and world-scale hex maps. The 
 
 ## Proof-of-concept goal
 
-The first version is a standalone website contained in a single `index.html` file. It uses:
+The current proof of concept is a static website that runs without a build step. It uses:
 
 - SVG for the hex map and overlays
 - Bootstrap for the compact responsive interface
 - jQuery for application state and interaction logic
-- inline CSS and JavaScript so the POC can be opened directly without a build step
+- separate readable HTML, CSS, and JavaScript source files
 
 The grid begins with one central hex and expands outward in clockwise spiral order. The POC supports between 1 and 1,500 cells.
 
@@ -118,13 +118,117 @@ Influence reach costs are derived data and are not stored as a large list in the
 
 The current JSON schema version is `2`. The importer also accepts the earlier single-origin overlay budget and migrates it into the influence budget when possible.
 
-## Initial repository structure
+## Repository structure
 
 ```text
-README.md                          Project scope, rules, data model, and implementation plan
-index.html                         Complete standalone proof of concept
+README.md                          Project scope, controls, limitations, and roadmap
+index.html                         Page structure and ordered stylesheet/script references
+css/app.css                        Application layout, map, overlay, and interaction styles
+js/constants.js                    Terrain, edge, point, direction, and size definitions
+js/state.js                        Application state, validation, migration, and map rebuilding
+js/grid.js                         Axial coordinates, spiral generation, geometry, and heap utility
+js/interactions.js                 Cell, edge, point, selection, swapping, and batch-edit behavior
+js/influence.js                    Movement costs and multi-source influence calculations
+js/rendering.js                    SVG rendering, layers, hit targets, legend, and view box
+js/persistence.js                  JSON export, import, migration trigger, and clipboard handling
+js/app.js                          Event registration, pan/zoom controls, and application startup
 .github/workflows/deploy-pages.yml Automatic GitHub Pages deployment from main
 ```
+
+The application remains build-free. Scripts are loaded in dependency order from `index.html`, with `js/app.js` loaded last.
+
+## Known product limitations
+
+The following limitations are accepted for the current proof of concept and should be treated as planned product work rather than regressions:
+
+- There is no undo or redo history.
+- Temporary multi-cell selection is not included in exported JSON.
+- Ctrl-based multi-selection has no dedicated touch-screen alternative.
+- Point mode supports only individual corner editing and has no batch operations.
+- The outer map perimeter is not represented as an editable edge because stored edges require two adjacent cells.
+- Forest, grain, and city influence layers currently share one travel-day budget.
+- Edge features are mutually exclusive, so a bridge or pass replaces another feature on the same edge instead of forming a layered combination.
+- City and grain are primary cell types rather than independent attributes that can coexist with another terrain type.
+- Bootstrap and jQuery are loaded from CDNs, so the application is not fully offline.
+- There is no PNG or standalone SVG export.
+- There are no custom labels, editable movement profiles, or custom icons.
+- Large maps up to 1,500 cells are supported, but performance targets and browser-specific limits are not yet formally benchmarked.
+
+## Automated test plan
+
+Automated tests should be added in small reviewable commits. GitHub remains the source of truth, and each milestone should leave a runnable test subset in the repository.
+
+### Proposed test structure
+
+```text
+package.json                        Test commands and pinned development dependencies
+playwright.config.js                Local static-server and browser-test configuration
+tests/
+  grid.spec.js                      Spiral generation, coordinates, canonical keys, and size limits
+  movement.spec.js                  Movement costs, roads, rivers, bridges, passes, and barriers
+  cell-interactions.spec.js         Painting, Ctrl-selection, Ctrl-drag, batch fill, and swapping
+  edge-interactions.spec.js         Single-edge editing and inside/outside batch operations
+  point-interactions.spec.js        Town, toll, POI, clearing, and shared-corner behavior
+  influence.spec.js                 Multi-source reach, overlaps, toggles, symbols, and invalidation
+  persistence.spec.js               JSON round trips, schema migration, validation, and recalculation
+  viewport.spec.js                  Rendering, 1,500-cell rebuild, zoom, fit, and panning
+```
+
+### Planned test commits
+
+1. **test: add browser test foundation**
+   - Add `package.json`, pinned Playwright dependency, test commands, and `playwright.config.js`.
+   - Start the existing static application through Playwright's local web server configuration.
+   - Do not add a build system or production dependency.
+
+2. **test: cover grid and map data utilities**
+   - Verify centre-first clockwise spiral generation.
+   - Verify unique axial cell IDs through 1,500 cells.
+   - Verify canonical shared-edge and corner keys.
+   - Verify cell-count clamping and state preservation when rebuilding smaller or larger maps.
+
+3. **test: cover movement and crossing rules**
+   - Verify normal, road, forest, bridge, and pass movement costs.
+   - Verify rivers block travel.
+   - Verify water requires a bridge crossing.
+   - Verify mountains require a pass crossing.
+
+4. **test: cover cell editing and selection**
+   - Verify normal painting and clearing.
+   - Verify Ctrl-click toggles individual selections.
+   - Verify Ctrl-drag adds crossed cells.
+   - Verify batch fill and overwrite across selected cells.
+   - Verify drag-and-drop swaps cell-level characteristics while leaving edges and points geographically anchored.
+
+5. **test: cover edge and point editing**
+   - Verify individual edge editing and clearing.
+   - Verify inside-edge and outside-edge batch operations.
+   - Verify point creation, replacement, and clearing for towns, tolls, and POIs.
+   - Verify point mode has no batch operation.
+
+6. **test: cover simultaneous influence overlays**
+   - Verify all forest, grain, and city cells act as sources for their corresponding type.
+   - Verify the three calculations run from one action and can overlap on the same destination cell.
+   - Verify transparent overlays and grouped symbols are rendered for every active influence type.
+   - Verify each toggle hides only its own overlay and symbols without recalculating.
+   - Verify relevant cell, edge, swap, and rebuild changes invalidate calculated influence data.
+
+7. **test: cover JSON persistence and migration**
+   - Verify export/import round trips for cells, edges, points, influence budget, toggle state, and calculated state.
+   - Verify temporary multi-selection is intentionally not persisted.
+   - Verify derived influence costs are recalculated rather than stored.
+   - Verify schema version `1` overlay budgets migrate into schema version `2` influence settings.
+   - Verify malformed or out-of-grid data is rejected or sanitized safely.
+
+8. **test: cover viewport and large-map behavior**
+   - Verify initial rendering and fit behavior.
+   - Verify zoom buttons, wheel zoom, Shift-drag panning, and middle-button panning.
+   - Verify a 1,500-cell map renders and remains editable within a documented test timeout.
+
+9. **ci: run browser tests for pull requests**
+   - Add a dedicated test workflow only after the local suite is stable.
+   - Run on pull requests and pushes to `main`.
+   - Keep the existing Pages deployment workflow independent from test execution.
 
 ## Implementation commits and roadmap
 
@@ -132,7 +236,7 @@ index.html                         Complete standalone proof of concept
    - Document the purpose, terrain model, edge and point features, travel rules, JSON persistence, and implementation plan.
 
 2. **feat: add standalone interactive hex mapper** — completed
-   - Add the clockwise spiral SVG grid, cell painting, shared-edge editing, vertex features, weighted travel overlay, and JSON export/import in one self-contained HTML file.
+   - Add the clockwise spiral SVG grid, cell painting, shared-edge editing, vertex features, weighted travel overlay, and JSON export/import.
 
 3. **ci: deploy main to GitHub Pages** — completed
    - Publish the repository root automatically whenever a commit or merged pull request updates `main`.
@@ -146,14 +250,14 @@ index.html                         Complete standalone proof of concept
 6. **feat: add simultaneous influence overlays** — completed on the feature branch
    - Calculate forest, grain, and city reach simultaneously from all matching source cells, add independent visibility toggles, transparent legend-colored overlays, grouped influence symbols, and JSON schema migration.
 
-7. **test: add interaction and data-model checks** — planned
-   - Add maintained browser tests for spiral generation, canonical edge and vertex keys, travel-cost calculation, impassable crossings, JSON round trips, multi-selection gestures, batch cell and edge editing, cell swapping, and simultaneous influence layers.
+7. **refactor: separate stable application modules** — completed on the feature branch
+   - Split the application into readable HTML, CSS, state, grid, interaction, influence, rendering, persistence, and startup modules while preserving build-free deployment.
 
-8. **refactor: separate stable application modules** — planned
-   - Only after the POC is validated, optionally split the file into a minimal production structure such as `index.html`, `css/app.css`, and `js/app.js` while preserving a no-build deployment.
+8. **test: add maintained automated coverage** — planned
+   - Implement the staged browser-test commits described in the automated test plan.
 
-9. **feat: expand map modelling** — planned
-   - Add labels, editable movement profiles, undo/redo, custom icons, optional PNG/SVG export, additional resource classes, and more operations for selected cells.
+9. **feat: address known product limitations** — planned
+   - Prioritize undo/redo, touch-friendly selection, layered map attributes, separate influence budgets, export formats, labels, and editable movement profiles.
 
 ## POC interaction model
 
