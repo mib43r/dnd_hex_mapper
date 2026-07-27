@@ -24,9 +24,11 @@
     .section-title { font-size: .77rem; letter-spacing: .08em; text-transform: uppercase; color: #6c757d; }
     .form-text { font-size: .77rem; }
     .mode-button.active { box-shadow: 0 0 0 .2rem rgba(13,110,253,.2); }
-    .hex-cell { stroke: var(--hex-stroke); stroke-width: 1.25; cursor: pointer; vector-effect: non-scaling-stroke; }
+    .hex-cell { stroke: var(--hex-stroke); stroke-width: 1.25; cursor: grab; vector-effect: non-scaling-stroke; }
     .hex-cell:hover { stroke-width: 2.3; }
     .hex-cell.selected { stroke: var(--selected); stroke-width: 4; }
+    .hex-cell.drag-source { stroke: #fd7e14; stroke-width: 4; opacity: .72; cursor: grabbing; }
+    .hex-cell.drag-target { stroke: #198754; stroke-width: 4.5; }
     .hex-label { pointer-events: none; font: 600 8px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; fill: rgba(20,24,28,.72); }
     .edge-hit { stroke: transparent; stroke-width: 12; cursor: crosshair; }
     .edge-feature { pointer-events: none; stroke-linecap: round; vector-effect: non-scaling-stroke; }
@@ -59,7 +61,7 @@
         <h1 class="h4 mb-1">D&D Hex Mapper</h1>
         <div class="text-secondary small">Standalone weighted-map POC</div>
       </div>
-      <span class="badge text-bg-secondary">v0.1</span>
+      <span class="badge text-bg-secondary">v0.2</span>
     </div>
 
     <section class="mb-4">
@@ -92,6 +94,7 @@
           <option value="city">City</option>
           <option value="none">Clear cell</option>
         </select>
+        <div class="form-text">Click to paint. Ctrl-click or Ctrl-drag to select multiple cells. Drag without Ctrl to swap cell contents.</div>
       </div>
 
       <div id="edgeToolPanel" class="tool-panel d-none">
@@ -206,9 +209,14 @@ $(function () {
     zoom: 1,
     panX: 0,
     panY: 0,
-    dragging: false,
-    dragStart: null,
-    baseViewBox: null
+    panning: false,
+    panStart: null,
+    baseViewBox: null,
+    validCellIds: new Set(),
+    selectedCellIds: new Set(),
+    cellGesture: null,
+    dragTargetCellId: null,
+    suppressNextCellClick: false
   };
 
   function createInitialState(cellCount) {
@@ -377,9 +385,13 @@ $(function () {
     const cellLayer = svgElement('g', { id: 'cellLayer' });
     const edgeLayer = svgElement('g', { id: 'edgeLayer' });
     const pointLayer = svgElement('g', { id: 'pointLayer' });
-    const hitLayer = svgElement('g', { id: 'hitLayer' });
+    const hitLayer = svgElement('g', {
+      id: 'hitLayer',
+      'pointer-events': interaction.mode === 'cell' ? 'none' : 'auto'
+    });
 
     svg.append(overlayLayer, cellLayer, edgeLayer, pointLayer, hitLayer);
+    interaction.validCellIds = idSet;
 
     cells.forEach((cell, spiralIndex) => {
       const id = cellId(cell.q, cell.r);
@@ -393,8 +405,9 @@ $(function () {
         points: pointsAttribute(vertices),
         fill: metadata.fill,
         'data-cell-id': id,
-        class: `hex-cell${state.selectedCellId === id ? ' selected' : ''}`
+        class: `hex-cell${interaction.selectedCellIds.has(id) || state.selectedCellId === id ? ' selected' : ''}`
       });
+      polygon.addEventListener('pointerdown', event => onCellPointerDown(event, id));
       polygon.addEventListener('click', event => onCellClick(event, id));
       cellLayer.appendChild(polygon);
 
@@ -537,21 +550,208 @@ $(function () {
     $('#hexMap').attr('viewBox', `${x} ${y} ${width} ${height}`);
   }
 
+  function setActiveCell(id) {
+    state.selectedCellId = id || null;
+    state.overlay.originCellId = id || null;
+    $('#originLabel').text(id ? describeCell(id) : 'none selected');
+  }
+
+  function refreshCellInteractionClasses() {
+    $('.hex-cell').each(function () {
+      const id = this.getAttribute('data-cell-id');
+      const isSelected = interaction.selectedCellIds.has(id) || state.selectedCellId === id;
+      const gesture = interaction.cellGesture;
+      const isDragSource = Boolean(gesture && !gesture.ctrl && gesture.moved && gesture.sourceId === id);
+      const isDragTarget = Boolean(gesture && !gesture.ctrl && gesture.moved && interaction.dragTargetCellId === id && gesture.sourceId !== id);
+      this.classList.toggle('selected', isSelected);
+      this.classList.toggle('drag-source', isDragSource);
+      this.classList.toggle('drag-target', isDragTarget);
+    });
+  }
+
+  function selectSingleCell(id) {
+    interaction.selectedCellIds = id ? new Set([id]) : new Set();
+    setActiveCell(id);
+    refreshCellInteractionClasses();
+  }
+
+  function addCellToSelection(id) {
+    if (!id) return;
+    interaction.selectedCellIds.add(id);
+    setActiveCell(id);
+    refreshCellInteractionClasses();
+  }
+
+  function removeCellFromSelection(id) {
+    interaction.selectedCellIds.delete(id);
+    const remaining = [...interaction.selectedCellIds];
+    setActiveCell(remaining.length ? remaining[remaining.length - 1] : null);
+    refreshCellInteractionClasses();
+  }
+
+  function describeSelection() {
+    const count = interaction.selectedCellIds.size;
+    if (!count) return 'No cells selected.';
+    return `${count} cell${count === 1 ? '' : 's'} selected. Active: ${describeCell(state.selectedCellId)}.`;
+  }
+
+  function applyCellType(id) {
+    const type = $('#cellType').val();
+    if (type === 'none') delete state.cells[id];
+    else state.cells[id] = { type };
+    state.overlay.costs = {};
+    setStatus(`${CELL_TYPES[type].label} applied to ${id}.`);
+  }
+
+  function swapCellContents(sourceId, targetId) {
+    const sourceValue = state.cells[sourceId] ? { ...state.cells[sourceId] } : null;
+    const targetValue = state.cells[targetId] ? { ...state.cells[targetId] } : null;
+
+    if (targetValue) state.cells[sourceId] = targetValue;
+    else delete state.cells[sourceId];
+
+    if (sourceValue) state.cells[targetId] = sourceValue;
+    else delete state.cells[targetId];
+
+    state.overlay.costs = {};
+  }
+
+  function svgPointFromClient(clientX, clientY) {
+    const svg = $('#hexMap')[0];
+    const matrix = svg.getScreenCTM();
+    if (!matrix) return null;
+    const point = svg.createSVGPoint();
+    point.x = clientX;
+    point.y = clientY;
+    return point.matrixTransform(matrix.inverse());
+  }
+
+  function roundAxial(q, r) {
+    let cubeX = q;
+    let cubeZ = r;
+    let cubeY = -cubeX - cubeZ;
+    let roundedX = Math.round(cubeX);
+    let roundedY = Math.round(cubeY);
+    let roundedZ = Math.round(cubeZ);
+    const diffX = Math.abs(roundedX - cubeX);
+    const diffY = Math.abs(roundedY - cubeY);
+    const diffZ = Math.abs(roundedZ - cubeZ);
+
+    if (diffX > diffY && diffX > diffZ) roundedX = -roundedY - roundedZ;
+    else if (diffY > diffZ) roundedY = -roundedX - roundedZ;
+    else roundedZ = -roundedX - roundedY;
+
+    return { q: roundedX, r: roundedZ };
+  }
+
+  function getCellIdAtClientPoint(clientX, clientY) {
+    const point = svgPointFromClient(clientX, clientY);
+    if (!point) return null;
+    const q = ((SQRT3 / 3) * point.x - point.y / 3) / HEX_SIZE;
+    const r = ((2 / 3) * point.y) / HEX_SIZE;
+    const rounded = roundAxial(q, r);
+    const id = cellId(rounded.q, rounded.r);
+    return interaction.validCellIds.has(id) ? id : null;
+  }
+
+  function onCellPointerDown(event, id) {
+    if (interaction.mode !== 'cell' || event.button !== 0 || event.shiftKey) return;
+    event.stopPropagation();
+    event.preventDefault();
+
+    const ctrl = event.ctrlKey || event.metaKey;
+    interaction.cellGesture = {
+      pointerId: event.pointerId,
+      sourceId: id,
+      ctrl,
+      startX: event.clientX,
+      startY: event.clientY,
+      moved: false,
+      sourceWasSelected: interaction.selectedCellIds.has(id),
+      visited: new Set([id])
+    };
+    interaction.dragTargetCellId = null;
+
+    if (ctrl) addCellToSelection(id);
+
+    const svg = $('#hexMap')[0];
+    svg.setPointerCapture?.(event.pointerId);
+  }
+
+  function updateCellGesture(event) {
+    const gesture = interaction.cellGesture;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+
+    const distance = Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY);
+    if (!gesture.moved && distance >= 6) gesture.moved = true;
+    if (!gesture.moved) return;
+
+    const targetId = getCellIdAtClientPoint(event.clientX, event.clientY);
+    if (gesture.ctrl) {
+      if (targetId && !gesture.visited.has(targetId)) {
+        gesture.visited.add(targetId);
+        addCellToSelection(targetId);
+        setStatus(describeSelection());
+      }
+      return;
+    }
+
+    interaction.dragTargetCellId = targetId;
+    refreshCellInteractionClasses();
+    setStatus(targetId && targetId !== gesture.sourceId
+      ? `Release to swap ${gesture.sourceId} with ${targetId}.`
+      : 'Drag onto another cell to swap their contents.');
+  }
+
+  function finishCellGesture(event, cancelled = false) {
+    const gesture = interaction.cellGesture;
+    if (!gesture || gesture.pointerId !== event.pointerId) return false;
+
+    const targetId = getCellIdAtClientPoint(event.clientX, event.clientY);
+    interaction.suppressNextCellClick = true;
+    setTimeout(() => { interaction.suppressNextCellClick = false; }, 0);
+
+    if (!cancelled && gesture.ctrl) {
+      if (!gesture.moved && gesture.sourceWasSelected) removeCellFromSelection(gesture.sourceId);
+      setStatus(describeSelection());
+    } else if (!cancelled && gesture.moved) {
+      if (targetId && targetId !== gesture.sourceId) {
+        swapCellContents(gesture.sourceId, targetId);
+        interaction.cellGesture = null;
+        interaction.dragTargetCellId = null;
+        selectSingleCell(targetId);
+        renderMap();
+        setStatus(`Swapped cell contents between ${gesture.sourceId} and ${targetId}.`);
+        return true;
+      }
+      setStatus('Cell swap cancelled. Drop on a different cell.');
+    } else if (!cancelled) {
+      selectSingleCell(gesture.sourceId);
+      applyCellType(gesture.sourceId);
+      interaction.cellGesture = null;
+      interaction.dragTargetCellId = null;
+      renderMap();
+      return true;
+    } else {
+      setStatus('Cell gesture cancelled.');
+    }
+
+    interaction.cellGesture = null;
+    interaction.dragTargetCellId = null;
+    refreshCellInteractionClasses();
+    return true;
+  }
+
   function onCellClick(event, id) {
     event.stopPropagation();
-    state.selectedCellId = id;
-    state.overlay.originCellId = id;
-    $('#originLabel').text(describeCell(id));
-
-    if (interaction.mode === 'cell') {
-      const type = $('#cellType').val();
-      if (type === 'none') delete state.cells[id];
-      else state.cells[id] = { type };
-      state.overlay.costs = {};
-      setStatus(`${CELL_TYPES[type].label} applied to ${id}.`);
-    } else {
-      setStatus(`Selected ${describeCell(id)} as the overlay origin.`);
+    if (interaction.suppressNextCellClick) {
+      interaction.suppressNextCellClick = false;
+      return;
     }
+
+    selectSingleCell(id);
+    if (interaction.mode === 'cell') applyCellType(id);
+    else setStatus(`Selected ${describeCell(id)} as the overlay origin.`);
     renderMap();
   }
 
@@ -662,8 +862,9 @@ $(function () {
     $(`#${interaction.mode}ToolPanel`).removeClass('d-none');
     $('.mode-button').removeClass('active');
     $(`.mode-button[data-mode="${interaction.mode}"]`).addClass('active');
+    $('#hitLayer').attr('pointer-events', interaction.mode === 'cell' ? 'none' : 'auto');
     const messages = {
-      cell: 'Cell mode: choose a terrain and click a hex.',
+      cell: 'Cell mode: click to paint, Ctrl-click/drag to select, or drag to swap.',
       edge: 'Edge mode: choose a feature and click a shared border.',
       point: 'Point mode: choose a feature and click a hex corner.'
     };
@@ -690,6 +891,7 @@ $(function () {
     const count = clampCellCount($('#cellCount').val());
     $('#cellCount').val(count);
     rebuildPreservingData(count);
+    interaction.selectedCellIds = state.selectedCellId ? new Set([state.selectedCellId]) : new Set();
     renderMap({ fit: true });
     setStatus(`Map rebuilt with ${count} cells.`);
   });
@@ -738,6 +940,7 @@ $(function () {
   $('#importJson').on('click', function () {
     try {
       state = sanitizeState(JSON.parse($('#jsonState').val()));
+      interaction.selectedCellIds = state.selectedCellId ? new Set([state.selectedCellId]) : new Set();
       $('#cellCount').val(state.cellCount);
       $('#travelBudget').val(state.overlay.budget);
       if (state.overlay.originCellId) {
@@ -787,23 +990,33 @@ $(function () {
 
   $('#hexMap').on('pointerdown', function (event) {
     if (event.button !== 1 && !(event.button === 0 && event.shiftKey)) return;
-    interaction.dragging = true;
-    interaction.dragStart = { x: event.clientX, y: event.clientY, panX: interaction.panX, panY: interaction.panY };
+    interaction.panning = true;
+    interaction.panStart = { x: event.clientX, y: event.clientY, panX: interaction.panX, panY: interaction.panY };
     this.setPointerCapture(event.pointerId);
   });
 
   $('#hexMap').on('pointermove', function (event) {
-    if (!interaction.dragging || !interaction.baseViewBox) return;
-    const rect = this.getBoundingClientRect();
-    const scaleX = (interaction.baseViewBox.width / interaction.zoom) / rect.width;
-    const scaleY = (interaction.baseViewBox.height / interaction.zoom) / rect.height;
-    interaction.panX = interaction.dragStart.panX - (event.clientX - interaction.dragStart.x) * scaleX;
-    interaction.panY = interaction.dragStart.panY - (event.clientY - interaction.dragStart.y) * scaleY;
-    applyViewBox();
+    if (interaction.panning && interaction.baseViewBox) {
+      const rect = this.getBoundingClientRect();
+      const scaleX = (interaction.baseViewBox.width / interaction.zoom) / rect.width;
+      const scaleY = (interaction.baseViewBox.height / interaction.zoom) / rect.height;
+      interaction.panX = interaction.panStart.panX - (event.clientX - interaction.panStart.x) * scaleX;
+      interaction.panY = interaction.panStart.panY - (event.clientY - interaction.panStart.y) * scaleY;
+      applyViewBox();
+      return;
+    }
+    updateCellGesture(event);
   });
 
-  $('#hexMap').on('pointerup pointercancel', function (event) {
-    interaction.dragging = false;
+  $('#hexMap').on('pointerup', function (event) {
+    interaction.panning = false;
+    finishCellGesture(event, false);
+    if (this.hasPointerCapture?.(event.pointerId)) this.releasePointerCapture(event.pointerId);
+  });
+
+  $('#hexMap').on('pointercancel', function (event) {
+    interaction.panning = false;
+    finishCellGesture(event, true);
     if (this.hasPointerCapture?.(event.pointerId)) this.releasePointerCapture(event.pointerId);
   });
 
