@@ -1,7 +1,9 @@
 'use strict';
 
 function movementCost(fromId, toId, influenceType) {
-  const edge = state.edges[canonicalEdgeKey(fromId, toId)]?.type || null;
+  const fromCell = parseCellId(fromId);
+  const toCell = parseCellId(toId);
+  const edge = state.edges[edgeKeyFromCells(fromCell, toCell)]?.type || null;
   const fromType = getExistingCellType(fromId);
   const toType = getExistingCellType(toId);
 
