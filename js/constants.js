@@ -20,6 +20,51 @@ const CELL_TYPES = {
   city:      { label: 'City', fill: '#cdb4db', icon: '◆', cost: 1 }
 };
 
+const TERRAIN_MOTIFS = {
+  plains: {
+    sheet: 'assets/textures/motifs/plains.svg',
+    symbols: ['grass-1', 'grass-2', 'hill-1', 'stone-1', 'tuft-1'],
+    count: 5,
+    scale: [0.34, 0.48]
+  },
+  forest: {
+    sheet: 'assets/textures/motifs/forest.svg',
+    symbols: ['tree-1', 'tree-2', 'tree-3', 'tree-4', 'tree-5'],
+    count: 7,
+    scale: [0.42, 0.62]
+  },
+  desert: {
+    sheet: 'assets/textures/motifs/desert.svg',
+    symbols: ['dune-1', 'dune-2', 'rock-1', 'scrub-1', 'scrub-2'],
+    count: 5,
+    scale: [0.38, 0.56]
+  },
+  water: {
+    sheet: 'assets/textures/motifs/water.svg',
+    symbols: ['wave-1', 'wave-2', 'wave-3', 'reed-1', 'islet-1'],
+    count: 6,
+    scale: [0.36, 0.52]
+  },
+  mountains: {
+    sheet: 'assets/textures/motifs/mountains.svg',
+    symbols: ['peak-1', 'peak-2', 'peak-3', 'ridge-1', 'ridge-2'],
+    count: 5,
+    scale: [0.48, 0.68]
+  },
+  grain: {
+    sheet: 'assets/textures/motifs/grain.svg',
+    symbols: ['field-1', 'field-2', 'haystack-1', 'sheaf-1', 'farm-road-1'],
+    count: 5,
+    scale: [0.38, 0.58]
+  },
+  city: {
+    sheet: 'assets/textures/motifs/city.svg',
+    symbols: ['house-1', 'house-2', 'tower-1', 'wall-1', 'gate-1'],
+    count: 6,
+    scale: [0.34, 0.5]
+  }
+};
+
 const EDGE_TYPES = {
   road: { label: 'Road', css: 'edge-road' },
   river: { label: 'River', css: 'edge-river' },
