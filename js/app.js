@@ -67,6 +67,17 @@ $(function () {
     setStatus(`${CELL_TYPES[type].label} influence ${this.checked ? 'shown' : 'hidden'}.`);
   });
 
+  $('.influence-setting').on('change', function () {
+    if (!updateInfluenceSettingsFromControls()) {
+      setStatus('Influence budgets and terrain multipliers must be greater than zero.');
+      return;
+    }
+
+    invalidateInfluences();
+    renderMap();
+    setStatus('Influence settings changed. Recalculate to update the overlays.');
+  });
+
   $('#exportJson').on('click', exportMapState);
   $('#importJson').on('click', importMapState);
   $('#copyJson').on('click', copyMapJson);
