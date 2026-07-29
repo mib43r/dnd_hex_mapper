@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg">
-  <symbol id="field-1" viewBox="0 0 64 64"><path d="M8 52 22 16h34L42 52Z" fill="none" stroke="#2F302B" stroke-width="5"/><path d="m16 47 31-25M12 38l29-22M24 52l30-24" stroke="#2F302B" stroke-width="3"/></symbol>
-  <symbol id="field-2" viewBox="0 0 64 64"><path d="M7 49 17 20h38L45 49Z" fill="none" stroke="#2F302B" stroke-width="5"/><path d="M15 27h34M12 36h35M9 44h36" stroke="#2F302B" stroke-width="3"/></symbol>
-  <symbol id="haystack-1" viewBox="0 0 64 64"><path d="M12 53q4-32 20-39 17 8 20 39Z" fill="#2F302B"/><path d="M18 43h28M22 31h20" stroke="#fff" stroke-width="3"/></symbol>
-  <symbol id="sheaf-1" viewBox="0 0 64 64"><path d="M32 56V15m0 18L19 22m13 10 13-16M20 55l12-23 12 23" fill="none" stroke="#2F302B" stroke-width="5" stroke-linecap="round"/></symbol>
-  <symbol id="farm-road-1" viewBox="0 0 64 64"><path d="M8 58q23-17 18-48m30 48Q33 41 38 7" fill="none" stroke="#2F302B" stroke-width="6" stroke-linecap="round"/></symbol>
-</svg>
