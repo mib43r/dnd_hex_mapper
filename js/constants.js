@@ -20,46 +20,85 @@ const CELL_TYPES = {
   city:      { label: 'City', fill: '#cdb4db', icon: '◆', cost: 1 }
 };
 
+const TERRAIN_RENDER_CONFIG = {
+  clipInset: 0.05
+};
+
 const TERRAIN_MOTIFS = {
   plains: {
-    sheet: 'assets/textures/motifs/plains.svg',
-    symbols: ['grass-1', 'grass-2', 'hill-1', 'stone-1', 'tuft-1'],
+    files: [
+      'assets/terrain/plains/grass-1.svg',
+      'assets/terrain/plains/grass-2.svg',
+      'assets/terrain/plains/hill-1.svg',
+      'assets/terrain/plains/stone-1.svg',
+      'assets/terrain/plains/tuft-1.svg'
+    ],
     count: 5,
     scale: [0.34, 0.48]
   },
   forest: {
-    sheet: 'assets/textures/motifs/forest.svg',
-    symbols: ['tree-1', 'tree-2', 'tree-3', 'tree-4', 'tree-5'],
+    files: [
+      'assets/terrain/forest/tree-1.svg',
+      'assets/terrain/forest/tree-2.svg',
+      'assets/terrain/forest/tree-3.svg',
+      'assets/terrain/forest/tree-4.svg',
+      'assets/terrain/forest/tree-5.svg'
+    ],
     count: 7,
     scale: [0.42, 0.62]
   },
   desert: {
-    sheet: 'assets/textures/motifs/desert.svg',
-    symbols: ['dune-1', 'dune-2', 'rock-1', 'scrub-1', 'scrub-2'],
+    files: [
+      'assets/terrain/desert/dune-1.svg',
+      'assets/terrain/desert/dune-2.svg',
+      'assets/terrain/desert/rock-1.svg',
+      'assets/terrain/desert/scrub-1.svg',
+      'assets/terrain/desert/scrub-2.svg'
+    ],
     count: 5,
     scale: [0.38, 0.56]
   },
   water: {
-    sheet: 'assets/textures/motifs/water.svg',
-    symbols: ['wave-1', 'wave-2', 'wave-3', 'reed-1', 'islet-1'],
+    files: [
+      'assets/terrain/water/wave-1.svg',
+      'assets/terrain/water/wave-2.svg',
+      'assets/terrain/water/wave-3.svg',
+      'assets/terrain/water/reed-1.svg',
+      'assets/terrain/water/islet-1.svg'
+    ],
     count: 6,
     scale: [0.36, 0.52]
   },
   mountains: {
-    sheet: 'assets/textures/motifs/mountains.svg',
-    symbols: ['peak-1', 'peak-2', 'peak-3', 'ridge-1', 'ridge-2'],
+    files: [
+      'assets/terrain/mountains/peak-1.svg',
+      'assets/terrain/mountains/peak-2.svg',
+      'assets/terrain/mountains/peak-3.svg',
+      'assets/terrain/mountains/ridge-1.svg',
+      'assets/terrain/mountains/ridge-2.svg'
+    ],
     count: 5,
     scale: [0.48, 0.68]
   },
   grain: {
-    sheet: 'assets/textures/motifs/grain.svg',
-    symbols: ['field-1', 'field-2', 'haystack-1', 'sheaf-1', 'farm-road-1'],
+    files: [
+      'assets/terrain/grain/field-1.svg',
+      'assets/terrain/grain/field-2.svg',
+      'assets/terrain/grain/haystack-1.svg',
+      'assets/terrain/grain/sheaf-1.svg',
+      'assets/terrain/grain/farm-road-1.svg'
+    ],
     count: 5,
     scale: [0.38, 0.58]
   },
   city: {
-    sheet: 'assets/textures/motifs/city.svg',
-    symbols: ['house-1', 'house-2', 'tower-1', 'wall-1', 'gate-1'],
+    files: [
+      'assets/terrain/city/house-1.svg',
+      'assets/terrain/city/house-2.svg',
+      'assets/terrain/city/tower-1.svg',
+      'assets/terrain/city/wall-1.svg',
+      'assets/terrain/city/gate-1.svg'
+    ],
     count: 6,
     scale: [0.34, 0.5]
   }
