@@ -2,6 +2,10 @@
 
 A browser-based generator and editor for regional and world-scale hex maps. The map is intended to model not only terrain, but also distance, direction, accessibility, resource distribution, and spheres of influence.
 
+## Documentation
+
+- [Terrain asset conventions](docs/terrain-assets.md) — editable SVG format, folder structure, renderer configuration, clipping, and adding or removing motifs.
+
 ## Proof-of-concept goal
 
 The current proof of concept is a static website that runs without a build step. It uses:
@@ -28,6 +32,10 @@ Each hex can be assigned one primary type:
 - mountains
 - grain field
 - city / large settlement
+
+Assigned terrain is illustrated with deterministic compositions of standalone SVG motifs from `assets/terrain/`. Each motif is an individually editable `64 × 64` SVG that opens visibly in a browser or SVG editor. The configured file paths, motif counts, and scale ranges are defined in `TERRAIN_MOTIFS` in `js/constants.js`.
+
+Terrain artwork is clipped to a geometrically similar inset hexagon. `TERRAIN_RENDER_CONFIG.clipInset` is set to `0.05`, so the clipping polygon uses 95% of the original hex radius and leaves a 5% clear border around the artwork. See [Terrain asset conventions](docs/terrain-assets.md) for the editing workflow and supported SVG format.
 
 ### Cell selection and rearrangement
 
@@ -122,20 +130,22 @@ The current JSON schema version is `2`. The importer also accepts the earlier si
 
 ```text
 README.md                          Project scope, controls, limitations, and roadmap
+docs/terrain-assets.md             Editable terrain SVG conventions and renderer configuration
+assets/terrain/<terrain>/*.svg     Standalone visible 64 × 64 terrain motifs
 index.html                         Page structure and ordered stylesheet/script references
 css/app.css                        Application layout, map, overlay, and interaction styles
-js/constants.js                    Terrain, edge, point, direction, and size definitions
+js/constants.js                    Terrain, motif, edge, point, direction, and size definitions
 js/state.js                        Application state, validation, migration, and map rebuilding
 js/grid.js                         Axial coordinates, spiral generation, geometry, and heap utility
 js/interactions.js                 Cell, edge, point, selection, swapping, and batch-edit behavior
 js/influence.js                    Movement costs and multi-source influence calculations
-js/rendering.js                    SVG rendering, layers, hit targets, legend, and view box
+js/rendering.js                    SVG rendering, terrain composition, layers, hit targets, legend, and view box
 js/persistence.js                  JSON export, import, migration trigger, and clipboard handling
 js/app.js                          Event registration, pan/zoom controls, and application startup
 .github/workflows/deploy-pages.yml Automatic GitHub Pages deployment from main
 ```
 
-The application remains build-free. Scripts are loaded in dependency order from `index.html`, with `js/app.js` loaded last.
+The application remains build-free. Scripts are loaded in dependency order from `index.html`, with `js/app.js` loaded last. Terrain SVG changes also require no build step: edit an individual motif, save it, and refresh the application.
 
 ## Known product limitations
 
@@ -172,6 +182,7 @@ tests/
   influence.spec.js                 Multi-source reach, overlaps, toggles, symbols, and invalidation
   persistence.spec.js               JSON round trips, schema migration, validation, and recalculation
   viewport.spec.js                  Rendering, 1,500-cell rebuild, zoom, fit, and panning
+  terrain-assets.spec.js            Standalone SVG paths, inset clipping, and interaction safety
 ```
 
 ### Planned test commits
