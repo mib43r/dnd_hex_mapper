@@ -20,13 +20,15 @@ function seededRandom(seed) {
   };
 }
 
-function renderTerrainMotifs(layer, definitions, id, type, pos, vertices) {
+function renderTerrainMotifs(layer, definitions, id, type, pos) {
   const config = TERRAIN_MOTIFS[type];
   if (!config) return;
 
+  const clipScale = 1 - TERRAIN_RENDER_CONFIG.clipInset;
+  const clipVertices = polygonPoints(pos.x, pos.y, clipScale);
   const clipId = `terrain-clip-${id.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
   const clipPath = svgElement('clipPath', { id: clipId });
-  clipPath.appendChild(svgElement('polygon', { points: pointsAttribute(vertices) }));
+  clipPath.appendChild(svgElement('polygon', { points: pointsAttribute(clipVertices) }));
   definitions.appendChild(clipPath);
 
   const group = svgElement('g', {
@@ -41,14 +43,14 @@ function renderTerrainMotifs(layer, definitions, id, type, pos, vertices) {
 
   for (let index = 0; index < config.count; index += 1) {
     const anchor = anchors[index % anchors.length];
-    const symbol = config.symbols[Math.floor(random() * config.symbols.length)];
+    const file = config.files[Math.floor(random() * config.files.length)];
     const scale = config.scale[0] + random() * (config.scale[1] - config.scale[0]);
     const size = 64 * scale;
     const x = pos.x + anchor[0] * HEX_SIZE * 1.45 + (random() - 0.5) * 5;
     const y = pos.y + anchor[1] * HEX_SIZE * 1.45 + (random() - 0.5) * 4;
     const rotation = (random() - 0.5) * 10;
     const motif = svgElement('use', {
-      href: `${config.sheet}#${symbol}`,
+      href: file,
       x: -size / 2,
       y: -size / 2,
       width: size,
@@ -96,7 +98,7 @@ function renderMap(options = {}) {
     polygon.addEventListener('pointerdown', event => onCellPointerDown(event, id));
     polygon.addEventListener('click', event => onCellClick(event, id));
     cellLayer.appendChild(polygon);
-    renderTerrainMotifs(motifLayer, definitions, id, type, pos, vertices);
+    renderTerrainMotifs(motifLayer, definitions, id, type, pos);
 
     if (type === 'none' && spiralIndex === 0) {
       const label = svgElement('text', { x: pos.x, y: pos.y, class: 'hex-label' });
