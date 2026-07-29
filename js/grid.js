@@ -9,6 +9,15 @@ function parseCellId(id) {
   return { q, r };
 }
 
+function coordinateKey([a, b]) {
+  return `${a},${b}`;
+}
+
+function parseCoordinateKey(key) {
+  const [a, b] = String(key).split(',').map(Number);
+  return [a, b];
+}
+
 function addAxial(a, b) {
   return { q: a.q + b.q, r: a.r + b.r };
 }
@@ -18,6 +27,66 @@ function axialToPixel(q, r) {
     x: HEX_SIZE * SQRT3 * (q + r / 2),
     y: HEX_SIZE * 1.5 * r
   };
+}
+
+function scaledAxialToPixel([a, b], scale) {
+  return axialToPixel(a / scale, b / scale);
+}
+
+function edgeCoordinate(a, b) {
+  return [a.q + b.q, a.r + b.r];
+}
+
+function edgeKeyFromCells(a, b) {
+  return coordinateKey(edgeCoordinate(a, b));
+}
+
+function edgeCells([Q, R]) {
+  if (Math.abs(Q % 2) === 1 && R % 2 === 0) {
+    return [
+      { q: (Q - 1) / 2, r: R / 2 },
+      { q: (Q + 1) / 2, r: R / 2 }
+    ];
+  }
+
+  if (Q % 2 === 0 && Math.abs(R % 2) === 1) {
+    return [
+      { q: Q / 2, r: (R - 1) / 2 },
+      { q: Q / 2, r: (R + 1) / 2 }
+    ];
+  }
+
+  if (Math.abs(Q % 2) === 1 && Math.abs(R % 2) === 1) {
+    return [
+      { q: (Q - 1) / 2, r: (R + 1) / 2 },
+      { q: (Q + 1) / 2, r: (R - 1) / 2 }
+    ];
+  }
+
+  return [];
+}
+
+function pointCoordinate(a, b, c) {
+  return [a.q + b.q + c.q, a.r + b.r + c.r];
+}
+
+function pointCoordinateForCorner(cell, cornerIndex) {
+  const previousDirection = DIRECTIONS[(cornerIndex + 5) % 6];
+  const nextDirection = DIRECTIONS[cornerIndex];
+  return pointCoordinate(
+    cell,
+    addAxial(cell, previousDirection),
+    addAxial(cell, nextDirection)
+  );
+}
+
+function pointCells([U, V]) {
+  const candidates = [
+    [{ q: (U - 2) / 3, r: (V + 1) / 3 }, { q: (U + 1) / 3, r: (V + 1) / 3 }, { q: (U + 1) / 3, r: (V - 2) / 3 }],
+    [{ q: (U - 1) / 3, r: (V + 2) / 3 }, { q: (U - 1) / 3, r: (V - 1) / 3 }, { q: (U + 2) / 3, r: (V - 1) / 3 }]
+  ];
+
+  return candidates.find(group => group.every(cell => Number.isInteger(cell.q) && Number.isInteger(cell.r))) || [];
 }
 
 function polygonPoints(cx, cy, scale = 1) {
@@ -51,16 +120,8 @@ function generateSpiral(count) {
   return cells.slice(0, count);
 }
 
-function canonicalEdgeKey(a, b) {
-  return [a, b].sort().join('|');
-}
-
-function canonicalPointKey(point) {
-  return `${Math.round(point.x * 1000)},${Math.round(point.y * 1000)}`;
-}
-
 function getExistingCellType(id) {
-  return state.cells[id]?.type || 'none';
+  return state.cells[id]?.type || 'plains';
 }
 
 function getNeighborId(cell, index) {
