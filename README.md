@@ -44,6 +44,10 @@ Each hex has one primary type:
 
 Plains are the default and are omitted from exported map data.
 
+Assigned terrain is illustrated with deterministic compositions of standalone SVG motifs from `assets/terrain/`. Each motif is an individually editable `64 × 64` SVG that opens visibly in a browser or SVG editor. The configured file paths, motif counts, and scale ranges are defined in `TERRAIN_MOTIFS` in `js/constants.js`.
+
+Terrain artwork is clipped to a geometrically similar inset hexagon. `TERRAIN_RENDER_CONFIG.clipInset` is set to `0.05`, so the clipping polygon uses 95% of the original hex radius and leaves a 5% clear border around the artwork. See [Terrain assets](docs/terrain-assets.md) for the editing workflow and supported SVG format.
+
 ### Edges
 
 Map borders can contain roads, rivers, mountain passes, and bridges.
@@ -76,7 +80,7 @@ npm test
 npm run test:headed
 ```
 
-The browser configuration and maintained test files are still minimal or incomplete. See [Testing](docs/testing.md) before treating `npm test` as a complete regression suite.
+The browser configuration and maintained test files are still deliberately minimal. See [Testing](docs/testing.md) before treating `npm test` as a complete regression suite.
 
 No production build step is required.
 
@@ -135,7 +139,9 @@ See the [JSON schema reference](docs/json-schema-v4.md) and [coordinate system r
 
 The application remains build-free. Scripts are loaded in dependency order from `index.html`, with `js/app.js` loaded last.
 
-Playwright is intended as a deliberately small browser-level regression layer for representative normal workflows. It should not introduce a build system or become more complicated than the application it verifies. Current status and intended coverage are documented in [Testing](docs/testing.md).
+Terrain artwork also has no build step. Edit an individual file under `assets/terrain/<terrain>/`, save it, and refresh the application. Motifs use a shared `64 × 64` view box and explicit monochrome artwork so they remain directly inspectable outside the application.
+
+Playwright is intended as a deliberately small browser-level regression layer for representative normal workflows. It should verify that the application loads, normal editing and persistence workflows work, and standalone terrain references, clipping, and interaction safety remain intact. It should not become a screenshot-regression system, an exhaustive SVG validator, or a build pipeline, and it should not become more complicated than the application it verifies. Current status and intended coverage are documented in [Testing](docs/testing.md).
 
 ## Repository structure
 
@@ -145,16 +151,19 @@ docs/architecture.md              Module responsibilities and data flow
 docs/coordinate-system.md         Cell, edge, and point topology
 docs/json-schema-v4.md            Persistence schema and migration rules
 docs/testing.md                   Minimal Playwright intent and verification guidance
+docs/terrain-assets.md            Editable terrain SVG conventions and renderer configuration
+assets/terrain/<terrain>/*.svg     Standalone visible 64 × 64 terrain motifs
 index.html                         Page structure and script references
 css/app.css                        Layout, map, overlay, and interaction styles
-js/constants.js                    Feature definitions and limits
+js/constants.js                    Feature, terrain-motif, renderer, and size definitions
 js/state.js                        State, validation, migration, and pruning
 js/grid.js                         Axial coordinates, topology, and geometry
 js/interactions.js                 Editing and selection behavior
 js/influence.js                    Movement and influence calculations
-js/rendering.js                    SVG rendering and viewport handling
+js/rendering.js                    SVG rendering, terrain composition, and viewport handling
 js/persistence.js                  JSON export, import, and clipboard handling
 js/app.js                          Event registration and startup
+tests/terrain-assets.spec.js       Standalone motif paths, clipping, and interaction safety
 ```
 
 ## Documentation
@@ -163,6 +172,7 @@ js/app.js                          Event registration and startup
 - [Coordinate system](docs/coordinate-system.md) — scaled-axial cell, edge, and point identities
 - [JSON schema version 4](docs/json-schema-v4.md) — compact map persistence format
 - [Testing](docs/testing.md) — minimal Playwright scope and current setup status
+- [Terrain assets](docs/terrain-assets.md) — editable motif format, folders, clipping, and renderer configuration
 
 ## Known limitations
 
@@ -174,19 +184,19 @@ js/app.js                          Event registration and startup
 - Terrain movement costs are editable per influence type, but edge movement rules remain fixed.
 - City and grain are primary cell types rather than independent attributes.
 - Bootstrap and jQuery are loaded from CDNs.
-- There is no PNG or standalone SVG export.
+- There is no PNG or standalone SVG map export.
 - There are no custom labels or custom icons.
 - Large-map performance has not yet been formally benchmarked across browsers.
-- The Playwright setup is intentionally minimal and does not yet provide broad automated coverage.
+- The Playwright setup is intentionally minimal and does not provide exhaustive automated or visual coverage.
 
 ## Roadmap
 
 Current priorities are:
 
-1. Add a small maintained Playwright suite for representative normal workflows.
+1. Maintain a small Playwright suite for representative normal workflows, including terrain asset loading and clipping.
 2. Complete boundary-edge rendering and editing without creating outside grid cells.
 3. Add undo and redo.
 4. Improve touch-friendly selection and editing.
 5. Support layered cell and edge attributes.
-6. Add image and standalone SVG export.
+6. Add image and standalone SVG map export.
 7. Add custom labels and icons.

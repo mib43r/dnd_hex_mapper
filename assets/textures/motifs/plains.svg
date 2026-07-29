@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg">
-  <symbol id="grass-1" viewBox="0 0 64 64"><path d="M32 55V22m0 20L18 30m14 11 13-18" fill="none" stroke="#2F302B" stroke-width="5" stroke-linecap="round"/></symbol>
-  <symbol id="grass-2" viewBox="0 0 64 64"><path d="M18 55V34m0 10L8 36m10 8 9-15m20 26V31m0 13-9-10m9 9 8-15" fill="none" stroke="#2F302B" stroke-width="4" stroke-linecap="round"/></symbol>
-  <symbol id="hill-1" viewBox="0 0 64 64"><path d="M5 49q14-24 27-5 12-17 27 5" fill="none" stroke="#2F302B" stroke-width="5" stroke-linecap="round"/></symbol>
-  <symbol id="stone-1" viewBox="0 0 64 64"><path d="m15 51 8-20 13-7 14 13 3 14Z" fill="#2F302B"/><path d="m23 31 7 12 6-19" fill="none" stroke="#fff" stroke-width="3"/></symbol>
-  <symbol id="tuft-1" viewBox="0 0 64 64"><path d="M10 54q9-18 18 0 8-28 17 0 5-14 10 0" fill="none" stroke="#2F302B" stroke-width="5" stroke-linecap="round"/></symbol>
-</svg>

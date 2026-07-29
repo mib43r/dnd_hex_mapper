@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg">
-  <symbol id="dune-1" viewBox="0 0 64 64"><path d="M4 47q16-25 31-8 10-16 25 2" fill="none" stroke="#2F302B" stroke-width="6" stroke-linecap="round"/><path d="M8 55q18-15 34-4" fill="none" stroke="#2F302B" stroke-width="3" stroke-linecap="round"/></symbol>
-  <symbol id="dune-2" viewBox="0 0 64 64"><path d="M3 50q14-19 29-8 12-21 29-2" fill="none" stroke="#2F302B" stroke-width="7" stroke-linecap="round"/><path d="M17 57q15-10 32-3" fill="none" stroke="#2F302B" stroke-width="3"/></symbol>
-  <symbol id="rock-1" viewBox="0 0 64 64"><path d="m12 51 9-22 12-7 15 12 5 17Z" fill="#2F302B"/><path d="m21 29 7 14 5-21m0 21 15-9" fill="none" stroke="#fff" stroke-width="3"/></symbol>
-  <symbol id="scrub-1" viewBox="0 0 64 64"><path d="M31 56V22m0 17L16 29m15 16 17-14M20 55l11-10 12 10" fill="none" stroke="#2F302B" stroke-width="5" stroke-linecap="round"/></symbol>
-  <symbol id="scrub-2" viewBox="0 0 64 64"><path d="M32 56V28m0 12L19 20m13 23 13-18M18 56l14-13 15 13" fill="none" stroke="#2F302B" stroke-width="4" stroke-linecap="round"/></symbol>
-</svg>
