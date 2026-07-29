@@ -47,7 +47,7 @@ test.describe('standalone terrain assets', () => {
   test('keeps terrain artwork outside pointer interaction', async ({ page }) => {
     await expect(page.locator('.terrain-motifs')).toHaveCSS('pointer-events', 'none');
 
-    await page.locator('[data-cell-type="desert"]').click();
+    await page.locator('#cellType').selectOption('desert');
     await page.locator('[data-cell-id="0,0"]').click();
 
     expect(await page.evaluate(() => state.cells['0,0'].type)).toBe('desert');
