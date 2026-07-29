@@ -71,11 +71,11 @@ const TERRAIN_MOTIFS = {
   },
   mountains: {
     files: [
-      'assets/terrain/mountains/peak-1.svg',
-      'assets/terrain/mountains/peak-2.svg',
-      'assets/terrain/mountains/peak-3.svg',
-      'assets/terrain/mountains/ridge-1.svg',
-      'assets/terrain/mountains/ridge-2.svg'
+      'assets/terrain/mountains/peak-1.png',
+      'assets/terrain/mountains/peak-2.png',
+      'assets/terrain/mountains/peak-3.png',
+      'assets/terrain/mountains/ridge-1.png',
+      'assets/terrain/mountains/ridge-2.png'
     ],
     count: 5,
     scale: [0.48, 0.68]
