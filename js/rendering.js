@@ -49,12 +49,14 @@ function renderTerrainMotifs(layer, definitions, id, type, pos) {
     const x = pos.x + anchor[0] * HEX_SIZE * 1.45 + (random() - 0.5) * 5;
     const y = pos.y + anchor[1] * HEX_SIZE * 1.45 + (random() - 0.5) * 4;
     const rotation = (random() - 0.5) * 10;
-    const motif = svgElement('use', {
+    const elementName = file.toLowerCase().endsWith('.png') ? 'image' : 'use';
+    const motif = svgElement(elementName, {
       href: file,
       x: -size / 2,
       y: -size / 2,
       width: size,
       height: size,
+      preserveAspectRatio: 'xMidYMid meet',
       transform: `translate(${x} ${y}) rotate(${rotation})`
     });
     group.appendChild(motif);
