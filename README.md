@@ -44,9 +44,9 @@ Each hex has one primary type:
 
 Plains are the default and are omitted from exported map data.
 
-Assigned terrain is illustrated with deterministic compositions of standalone SVG motifs from `assets/terrain/`. Each motif is an individually editable `64 × 64` SVG that opens visibly in a browser or SVG editor. The configured file paths, motif counts, and scale ranges are defined in `TERRAIN_MOTIFS` in `js/constants.js`.
+Assigned terrain is illustrated with deterministic compositions of standalone motifs from `assets/terrain/`. The renderer supports both SVG and transparent PNG motif files. Mountain motifs currently use higher-resolution PNG artwork, while the remaining terrain sets still use SVG files and are intended to migrate to the same illustrated PNG approach as their concepts are developed. The configured file paths, motif counts, and scale ranges are defined in `TERRAIN_MOTIFS` in `js/constants.js`.
 
-Terrain artwork is clipped to a geometrically similar inset hexagon. `TERRAIN_RENDER_CONFIG.clipInset` is set to `0.05`, so the clipping polygon uses 95% of the original hex radius and leaves a 5% clear border around the artwork. See [Terrain assets](docs/terrain-assets.md) for the editing workflow and supported SVG format.
+Terrain artwork is clipped to a geometrically similar inset hexagon. `TERRAIN_RENDER_CONFIG.clipInset` is set to `0.05`, so the clipping polygon uses 95% of the original hex radius and leaves a 5% clear border around the artwork. See [Terrain assets](docs/terrain-assets.md) for the current formats, visual direction, editing workflow, and migration guidance.
 
 ### Edges
 
@@ -139,9 +139,9 @@ See the [JSON schema reference](docs/json-schema-v4.md) and [coordinate system r
 
 The application remains build-free. Scripts are loaded in dependency order from `index.html`, with `js/app.js` loaded last.
 
-Terrain artwork also has no build step. Edit an individual file under `assets/terrain/<terrain>/`, save it, and refresh the application. Motifs use a shared `64 × 64` view box and explicit monochrome artwork so they remain directly inspectable outside the application.
+Terrain artwork also has no build step. Edit or replace an individual file under `assets/terrain/<terrain>/`, save it, and refresh the application. Current SVG motifs remain directly inspectable and editable, while illustrated transparent PNG motifs should be kept at a consistent high source resolution, centred with clear transparent margins, and designed to remain readable when rendered small. The long-term art direction is a coherent family of map-like illustrated PNG motifs using restrained terrain-specific palettes, dark contours, broad tonal planes, and sparse internal detail.
 
-Playwright is intended as a deliberately small browser-level regression layer for representative normal workflows. It should verify that the application loads, normal editing and persistence workflows work, and standalone terrain references, clipping, and interaction safety remain intact. It should not become a screenshot-regression system, an exhaustive SVG validator, or a build pipeline, and it should not become more complicated than the application it verifies. Current status and intended coverage are documented in [Testing](docs/testing.md).
+Playwright is intended as a deliberately small browser-level regression layer for representative normal workflows. It should verify that the application loads, normal editing and persistence workflows work, and standalone terrain references, clipping, and interaction safety remain intact. It should not become a screenshot-regression system, an exhaustive asset validator, or a build pipeline, and it should not become more complicated than the application it verifies. Current status and intended coverage are documented in [Testing](docs/testing.md).
 
 ## Repository structure
 
@@ -151,8 +151,8 @@ docs/architecture.md              Module responsibilities and data flow
 docs/coordinate-system.md         Cell, edge, and point topology
 docs/json-schema-v4.md            Persistence schema and migration rules
 docs/testing.md                   Minimal Playwright intent and verification guidance
-docs/terrain-assets.md            Editable terrain SVG conventions and renderer configuration
-assets/terrain/<terrain>/*.svg     Standalone visible 64 × 64 terrain motifs
+docs/terrain-assets.md            Terrain motif formats, visual direction, and renderer configuration
+assets/terrain/<terrain>/*         Standalone SVG or transparent PNG terrain motifs
 index.html                         Page structure and script references
 css/app.css                        Layout, map, overlay, and interaction styles
 js/constants.js                    Feature, terrain-motif, renderer, and size definitions
@@ -172,7 +172,7 @@ tests/terrain-assets.spec.js       Standalone motif paths, clipping, and interac
 - [Coordinate system](docs/coordinate-system.md) — scaled-axial cell, edge, and point identities
 - [JSON schema version 4](docs/json-schema-v4.md) — compact map persistence format
 - [Testing](docs/testing.md) — minimal Playwright scope and current setup status
-- [Terrain assets](docs/terrain-assets.md) — editable motif format, folders, clipping, and renderer configuration
+- [Terrain assets](docs/terrain-assets.md) — motif formats, illustrated art direction, folders, clipping, and editing guidance
 
 ## Known limitations
 
@@ -187,16 +187,18 @@ tests/terrain-assets.spec.js       Standalone motif paths, clipping, and interac
 - There is no PNG or standalone SVG map export.
 - There are no custom labels or custom icons.
 - Large-map performance has not yet been formally benchmarked across browsers.
+- The terrain library is currently mixed-format: mountains use the new illustrated PNG direction, while the other terrain categories still use the earlier SVG motifs.
 - The Playwright setup is intentionally minimal and does not provide exhaustive automated or visual coverage.
 
 ## Roadmap
 
 Current priorities are:
 
-1. Maintain a small Playwright suite for representative normal workflows, including terrain asset loading and clipping.
-2. Complete boundary-edge rendering and editing without creating outside grid cells.
-3. Add undo and redo.
-4. Improve touch-friendly selection and editing.
-5. Support layered cell and edge attributes.
-6. Add image and standalone SVG map export.
-7. Add custom labels and icons.
+1. Develop and migrate the remaining terrain categories to a coherent illustrated transparent PNG motif library.
+2. Maintain a small Playwright suite for representative normal workflows, including terrain asset loading and clipping.
+3. Complete boundary-edge rendering and editing without creating outside grid cells.
+4. Add undo and redo.
+5. Improve touch-friendly selection and editing.
+6. Support layered cell and edge attributes.
+7. Add image and standalone SVG map export.
+8. Add custom labels and icons.
