@@ -21,7 +21,9 @@ const CELL_TYPES = {
 };
 
 const TERRAIN_RENDER_CONFIG = {
-  clipInset: 0.05
+  clipInset: 0.05,
+  motifCoverage: 0.8,
+  maxRotation: 5
 };
 
 const TERRAIN_MOTIFS = {
@@ -32,9 +34,7 @@ const TERRAIN_MOTIFS = {
       'assets/terrain/plains/hills-1.png',
       'assets/terrain/plains/bushes-1.png',
       'assets/terrain/plains/gras-1.png'
-    ],
-    count: 5,
-    scale: [0.34, 0.48]
+    ]
   },
   forest: {
     files: [
@@ -43,9 +43,7 @@ const TERRAIN_MOTIFS = {
       'assets/terrain/forest/forest-3.png',
       'assets/terrain/forest/forest-4.png',
       'assets/terrain/forest/forest-5.png'
-    ],
-    count: 7,
-    scale: [0.42, 0.62]
+    ]
   },
   desert: {
     files: [
@@ -54,9 +52,7 @@ const TERRAIN_MOTIFS = {
       'assets/terrain/desert/dune-1.png',
       'assets/terrain/desert/rocks-1.png',
       'assets/terrain/desert/ruined-fort-1.png'
-    ],
-    count: 5,
-    scale: [0.38, 0.56]
+    ]
   },
   water: {
     files: [
@@ -65,9 +61,7 @@ const TERRAIN_MOTIFS = {
       'assets/terrain/water/seagulls-1.png',
       'assets/terrain/water/ship-1.png',
       'assets/terrain/water/wave-1.png'
-    ],
-    count: 6,
-    scale: [0.36, 0.52]
+    ]
   },
   mountains: {
     files: [
@@ -76,9 +70,7 @@ const TERRAIN_MOTIFS = {
       'assets/terrain/mountains/mountain-3.png',
       'assets/terrain/mountains/ridge-1.png',
       'assets/terrain/mountains/ridge-2.png'
-    ],
-    count: 5,
-    scale: [0.48, 0.68]
+    ]
   },
   grain: {
     files: [
@@ -87,9 +79,7 @@ const TERRAIN_MOTIFS = {
       'assets/terrain/grain/grain-circle-1.png',
       'assets/terrain/grain/scarecrow-1.png',
       'assets/terrain/grain/wheat-fields-1.png'
-    ],
-    count: 5,
-    scale: [0.38, 0.58]
+    ]
   },
   city: {
     files: [
@@ -99,9 +89,7 @@ const TERRAIN_MOTIFS = {
       'assets/terrain/city/house-1.png',
       'assets/terrain/city/house-2.png',
       'assets/terrain/city/tower-1.png'
-    ],
-    count: 6,
-    scale: [0.34, 0.5]
+    ]
   }
 };
 
@@ -138,30 +126,30 @@ class MinHeap {
   }
 
   pop() {
-    if (!this.items.length) return null;
-
+    if (!this.items.length) return undefined;
     const root = this.items[0];
     const last = this.items.pop();
+    if (!this.items.length) return root;
 
-    if (this.items.length && last) {
-      let index = 0;
+    let index = 0;
+    while (true) {
+      const left = index * 2 + 1;
+      const right = left + 1;
+      if (left >= this.items.length) break;
 
-      while (true) {
-        let child = index * 2 + 1;
-        if (child >= this.items.length) break;
-        if (child + 1 < this.items.length && this.items[child + 1].cost < this.items[child].cost) child += 1;
-        if (this.items[child].cost >= last.cost) break;
-        this.items[index] = this.items[child];
-        index = child;
-      }
+      let child = left;
+      if (right < this.items.length && this.items[right].cost < this.items[left].cost) child = right;
+      if (this.items[child].cost >= last.cost) break;
 
-      this.items[index] = last;
+      this.items[index] = this.items[child];
+      index = child;
     }
 
+    this.items[index] = last;
     return root;
   }
 
-  get length() {
+  get size() {
     return this.items.length;
   }
 }
