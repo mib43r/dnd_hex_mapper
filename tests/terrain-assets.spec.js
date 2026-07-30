@@ -29,6 +29,19 @@ test.describe('standalone terrain assets', () => {
     expect(hrefs.every(href => !href.includes('assets/textures'))).toBe(true);
   });
 
+  test('renders transparent mountain PNG references as SVG images', async ({ page }) => {
+    await page.evaluate(() => {
+      state.cells['0,0'] = { type: 'mountains' };
+      renderMap();
+    });
+
+    const motifs = page.locator('.terrain-motifs-mountains image');
+    await expect(motifs).toHaveCount(5);
+    const hrefs = await motifs.evaluateAll(nodes => nodes.map(node => node.getAttribute('href')));
+    expect(hrefs.every(href => href.startsWith('assets/terrain/mountains/'))).toBe(true);
+    expect(hrefs.every(href => href.endsWith('.png'))).toBe(true);
+  });
+
   test('clips motifs to a five per cent inset hexagon', async ({ page }) => {
     const result = await page.evaluate(() => {
       const clipPolygon = document.querySelector('#terrain-clip-0-0 polygon');
