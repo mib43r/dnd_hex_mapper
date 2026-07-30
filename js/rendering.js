@@ -9,20 +9,23 @@ function terrainSeed(value) {
   return hash >>> 0;
 }
 
-function seededRandom(seed) {
-  let value = seed >>> 0;
-  return () => {
-    value += 0x6D2B79F5;
-    let result = value;
-    result = Math.imul(result ^ result >>> 15, result | 1);
-    result ^= result + Math.imul(result ^ result >>> 7, result | 61);
-    return ((result ^ result >>> 14) >>> 0) / 4294967296;
-  };
+function positiveModulo(value, divisor) {
+  return ((value % divisor) + divisor) % divisor;
 }
 
-function renderTerrainMotifs(layer, definitions, id, type, pos) {
+function terrainMotifIndex(cell, fileCount) {
+  if (!fileCount) return 0;
+  return positiveModulo(cell.q + 2 * cell.r, fileCount);
+}
+
+function terrainMotifRotation(cell) {
+  const unit = (terrainSeed(`${cell.q},${cell.r}`) % 1001) / 1000;
+  return (unit * 2 - 1) * TERRAIN_RENDER_CONFIG.maxRotation;
+}
+
+function renderTerrainMotifs(layer, definitions, id, type, pos, cell) {
   const config = TERRAIN_MOTIFS[type];
-  if (!config) return;
+  if (!config?.files.length) return;
 
   const clipScale = 1 - TERRAIN_RENDER_CONFIG.clipInset;
   const clipVertices = polygonPoints(pos.x, pos.y, clipScale);
@@ -35,33 +38,20 @@ function renderTerrainMotifs(layer, definitions, id, type, pos) {
     class: `terrain-motifs terrain-motifs-${type}`,
     'clip-path': `url(#${clipId})`
   });
-  const random = seededRandom(terrainSeed(`${id}:${type}`));
-  const anchors = [
-    [-0.42, -0.27], [0, -0.34], [0.42, -0.24],
-    [-0.28, 0.16], [0.22, 0.14], [-0.02, 0.34], [0.46, 0.28]
-  ];
-
-  for (let index = 0; index < config.count; index += 1) {
-    const anchor = anchors[index % anchors.length];
-    const file = config.files[Math.floor(random() * config.files.length)];
-    const scale = config.scale[0] + random() * (config.scale[1] - config.scale[0]);
-    const size = 64 * scale;
-    const x = pos.x + anchor[0] * HEX_SIZE * 1.45 + (random() - 0.5) * 5;
-    const y = pos.y + anchor[1] * HEX_SIZE * 1.45 + (random() - 0.5) * 4;
-    const rotation = (random() - 0.5) * 10;
-    const elementName = file.toLowerCase().endsWith('.png') ? 'image' : 'use';
-    const motif = svgElement(elementName, {
-      href: file,
-      x: -size / 2,
-      y: -size / 2,
-      width: size,
-      height: size,
-      preserveAspectRatio: 'xMidYMid meet',
-      transform: `translate(${x} ${y}) rotate(${rotation})`
-    });
-    group.appendChild(motif);
-  }
-
+  const file = config.files[terrainMotifIndex(cell, config.files.length)];
+  const size = HEX_SIZE * 2 * TERRAIN_RENDER_CONFIG.motifCoverage;
+  const rotation = terrainMotifRotation(cell);
+  const elementName = file.toLowerCase().endsWith('.png') ? 'image' : 'use';
+  const motif = svgElement(elementName, {
+    href: file,
+    x: -size / 2,
+    y: -size / 2,
+    width: size,
+    height: size,
+    preserveAspectRatio: 'xMidYMid meet',
+    transform: `translate(${pos.x} ${pos.y}) rotate(${rotation})`
+  });
+  group.appendChild(motif);
   layer.appendChild(group);
 }
 
@@ -100,7 +90,7 @@ function renderMap(options = {}) {
     polygon.addEventListener('pointerdown', event => onCellPointerDown(event, id));
     polygon.addEventListener('click', event => onCellClick(event, id));
     cellLayer.appendChild(polygon);
-    renderTerrainMotifs(motifLayer, definitions, id, type, pos);
+    renderTerrainMotifs(motifLayer, definitions, id, type, pos, cell);
 
     if (type === 'none' && spiralIndex === 0) {
       const label = svgElement('text', { x: pos.x, y: pos.y, class: 'hex-label' });
