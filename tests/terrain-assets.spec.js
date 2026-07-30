@@ -44,22 +44,26 @@ test.describe('standalone terrain assets', () => {
       state.cells['0,1'] = { type: 'forest' };
       renderMap();
 
-      const hrefFor = id => document
-        .querySelector(`#terrain-clip-${id.replace(',', '-')} + *`);
-      const motifs = [...document.querySelectorAll('.terrain-motifs-forest image')];
-      const hrefs = motifs.map(node => node.getAttribute('href'));
-      return {
-        hrefs,
-        expected: [
-          TERRAIN_MOTIFS.forest.files[terrainMotifIndex({ q: 0, r: 0 }, TERRAIN_MOTIFS.forest.files.length)],
-          TERRAIN_MOTIFS.forest.files[terrainMotifIndex({ q: 1, r: 0 }, TERRAIN_MOTIFS.forest.files.length)],
-          TERRAIN_MOTIFS.forest.files[terrainMotifIndex({ q: 0, r: 1 }, TERRAIN_MOTIFS.forest.files.length)]
-        ]
-      };
+      const hrefByCell = {};
+      document.querySelectorAll('.terrain-motifs-forest').forEach(group => {
+        const clipPath = group.getAttribute('clip-path');
+        const id = clipPath.match(/terrain-clip-([^)]*)/)?.[1];
+        hrefByCell[id] = group.querySelector('image')?.getAttribute('href');
+      });
+
+      const expectedByCell = {};
+      [[0, 0], [1, 0], [0, 1]].forEach(([q, r]) => {
+        const key = `${q}-${r}`;
+        expectedByCell[key] = TERRAIN_MOTIFS.forest.files[
+          terrainMotifIndex({ q, r }, TERRAIN_MOTIFS.forest.files.length)
+        ];
+      });
+
+      return { hrefByCell, expectedByCell };
     });
 
-    expect(result.hrefs).toEqual(result.expected);
-    expect(new Set(result.hrefs).size).toBe(3);
+    expect(result.hrefByCell).toEqual(result.expectedByCell);
+    expect(new Set(Object.values(result.hrefByCell)).size).toBe(3);
   });
 
   test('clips motifs to a five per cent inset hexagon', async ({ page }) => {
